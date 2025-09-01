@@ -1,86 +1,114 @@
-const mongoose = require('mongoose');
+// In-memory Project model (no MongoDB)
+const { db, generateId } = require('../config/database');
 
-const projectSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  description: {
-    type: String
-  },
-  companyId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Company',
-    required: true
-  },
-  clientId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Client'
-  },
-  managerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  teamMembers: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
-  status: {
-    type: String,
-    enum: ['planning', 'active', 'on_hold', 'completed', 'cancelled'],
-    default: 'planning'
-  },
-  priority: {
-    type: String,
-    enum: ['low', 'medium', 'high', 'urgent'],
-    default: 'medium'
-  },
-  startDate: {
-    type: Date,
-    required: true
-  },
-  endDate: {
-    type: Date,
-    required: true
-  },
-  budget: {
-    amount: Number,
-    currency: { type: String, default: 'USD' },
-    type: { type: String, enum: ['fixed', 'hourly'], default: 'fixed' }
-  },
-  billing: {
-    rate: Number,
-    type: { type: String, enum: ['project', 'hourly', 'milestone'], default: 'project' }
-  },
-  progress: {
-    type: Number,
-    min: 0,
-    max: 100,
-    default: 0
-  },
-  tags: [String],
-  attachments: [{
-    name: String,
-    url: String,
-    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    uploadedAt: { type: Date, default: Date.now }
-  }],
-  settings: {
-    visibility: { type: String, enum: ['public', 'private', 'team'], default: 'team' },
-    allowComments: { type: Boolean, default: true },
-    requireTimeApproval: { type: Boolean, default: false },
-    sendDailyReports: { type: Boolean, default: false }
+class Project {
+  constructor(data) {
+    this._id = data._id || generateId();
+    this.name = data.name;
+    this.description = data.description;
+    this.companyId = data.companyId;
+    this.clientId = data.clientId;
+    this.managerId = data.managerId;
+    this.teamMembers = data.teamMembers || [];
+    this.status = data.status || 'planning';
+    this.priority = data.priority || 'medium';
+    this.startDate = data.startDate;
+    this.endDate = data.endDate;
+    this.budget = data.budget || {};
+    this.billing = data.billing || {};
+    this.progress = data.progress || 0;
+    this.tags = data.tags || [];
+    this.attachments = data.attachments || [];
+    this.settings = data.settings || {
+      visibility: 'team',
+      allowComments: true,
+      requireTimeApproval: false,
+      sendDailyReports: false
+    };
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
   }
-}, {
-  timestamps: true
-});
 
-// Indexes
-projectSchema.index({ companyId: 1 });
-projectSchema.index({ managerId: 1 });
-projectSchema.index({ status: 1 });
-projectSchema.index({ startDate: 1, endDate: 1 });
+  async save() {
+    const existingIndex = db.projects.findIndex(p => p._id === this._id);
+    if (existingIndex >= 0) {
+      this.updatedAt = new Date();
+      db.projects[existingIndex] = this;
+    } else {
+      db.projects.push(this);
+    }
+    return this;
+  }
 
-module.exports = mongoose.model('Project', projectSchema);
+  static async find(query = {}) {
+    let projects = [...db.projects];
+    
+    if (query.companyId) {
+      projects = projects.filter(p => p.companyId === query.companyId);
+    }
+    if (query.status) {
+      projects = projects.filter(p => p.status === query.status);
+    }
+    if (query.priority) {
+      projects = projects.filter(p => p.priority === query.priority);
+    }
+    
+    return projects.map(p => new Project(p));
+  }
+
+  static async findById(id) {
+    const project = db.projects.find(p => p._id === id);
+    return project ? new Project(project) : null;
+  }
+
+  static async findByIdAndUpdate(id, updates, options = {}) {
+    const index = db.projects.findIndex(p => p._id === id);
+    if (index === -1) return null;
+    
+    const project = db.projects[index];
+    const updated = { ...project, ...updates, updatedAt: new Date() };
+    db.projects[index] = updated;
+    
+    return new Project(updated);
+  }
+
+  static async findByIdAndDelete(id) {
+    const index = db.projects.findIndex(p => p._id === id);
+    if (index === -1) return null;
+    
+    const project = db.projects[index];
+    db.projects.splice(index, 1);
+    return new Project(project);
+  }
+
+  static async countDocuments(query = {}) {
+    let projects = [...db.projects];
+    
+    if (query.companyId) {
+      projects = projects.filter(p => p.companyId === query.companyId);
+    }
+    if (query.status) {
+      projects = projects.filter(p => p.status === query.status);
+    }
+    
+    return projects.length;
+  }
+
+  populate(field) {
+    return this;
+  }
+
+  limit(n) {
+    return this;
+  }
+
+  skip(n) {
+    return this;
+  }
+
+  sort(criteria) {
+    return this;
+  }
+}
+
+module.exports = Project;

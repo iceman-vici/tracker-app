@@ -1,97 +1,120 @@
-const mongoose = require('mongoose');
+// In-memory Task model (no MongoDB)
+const { db, generateId } = require('../config/database');
 
-const taskSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  description: {
-    type: String
-  },
-  projectId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Project',
-    required: true
-  },
-  assignedTo: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  status: {
-    type: String,
-    enum: ['todo', 'in_progress', 'review', 'completed', 'cancelled'],
-    default: 'todo'
-  },
-  priority: {
-    type: String,
-    enum: ['low', 'medium', 'high', 'urgent'],
-    default: 'medium'
-  },
-  dueDate: {
-    type: Date
-  },
-  estimatedHours: {
-    type: Number,
-    min: 0
-  },
-  actualHours: {
-    type: Number,
-    min: 0,
-    default: 0
-  },
-  tags: [String],
-  attachments: [{
-    name: String,
-    url: String,
-    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    uploadedAt: { type: Date, default: Date.now }
-  }],
-  comments: [{
-    text: String,
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    createdAt: { type: Date, default: Date.now }
-  }],
-  checklist: [{
-    item: String,
-    completed: { type: Boolean, default: false },
-    completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    completedAt: Date
-  }],
-  dependencies: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Task'
-  }],
-  completedAt: Date,
-  completedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+class Task {
+  constructor(data) {
+    this._id = data._id || generateId();
+    this.title = data.title;
+    this.description = data.description;
+    this.projectId = data.projectId;
+    this.assignedTo = data.assignedTo;
+    this.createdBy = data.createdBy;
+    this.status = data.status || 'todo';
+    this.priority = data.priority || 'medium';
+    this.dueDate = data.dueDate;
+    this.estimatedHours = data.estimatedHours || 0;
+    this.actualHours = data.actualHours || 0;
+    this.tags = data.tags || [];
+    this.attachments = data.attachments || [];
+    this.comments = data.comments || [];
+    this.checklist = data.checklist || [];
+    this.dependencies = data.dependencies || [];
+    this.completedAt = data.completedAt;
+    this.completedBy = data.completedBy;
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
   }
-}, {
-  timestamps: true
-});
 
-// Indexes
-taskSchema.index({ projectId: 1 });
-taskSchema.index({ assignedTo: 1 });
-taskSchema.index({ status: 1 });
-taskSchema.index({ dueDate: 1 });
-taskSchema.index({ priority: 1 });
-
-// Update project progress when task status changes
-taskSchema.post('save', async function(doc) {
-  if (this.isModified('status')) {
-    const Project = mongoose.model('Project');
-    const tasks = await mongoose.model('Task').find({ projectId: doc.projectId });
-    const completedTasks = tasks.filter(t => t.status === 'completed').length;
-    const progress = Math.round((completedTasks / tasks.length) * 100);
-    await Project.findByIdAndUpdate(doc.projectId, { progress });
+  async save() {
+    const existingIndex = db.tasks.findIndex(t => t._id === this._id);
+    if (existingIndex >= 0) {
+      this.updatedAt = new Date();
+      db.tasks[existingIndex] = this;
+    } else {
+      db.tasks.push(this);
+    }
+    return this;
   }
-});
 
-module.exports = mongoose.model('Task', taskSchema);
+  static async find(query = {}) {
+    let tasks = [...db.tasks];
+    
+    if (query.projectId) {
+      tasks = tasks.filter(t => t.projectId === query.projectId);
+    }
+    if (query.assignedTo) {
+      tasks = tasks.filter(t => t.assignedTo === query.assignedTo);
+    }
+    if (query.status) {
+      tasks = tasks.filter(t => t.status === query.status);
+    }
+    if (query.priority) {
+      tasks = tasks.filter(t => t.priority === query.priority);
+    }
+    
+    return tasks.map(t => new Task(t));
+  }
+
+  static async findById(id) {
+    const task = db.tasks.find(t => t._id === id);
+    return task ? new Task(task) : null;
+  }
+
+  static async findByIdAndUpdate(id, updates, options = {}) {
+    const index = db.tasks.findIndex(t => t._id === id);
+    if (index === -1) return null;
+    
+    const task = db.tasks[index];
+    const updated = { ...task, ...updates, updatedAt: new Date() };
+    db.tasks[index] = updated;
+    
+    return new Task(updated);
+  }
+
+  static async findByIdAndDelete(id) {
+    const index = db.tasks.findIndex(t => t._id === id);
+    if (index === -1) return null;
+    
+    const task = db.tasks[index];
+    db.tasks.splice(index, 1);
+    return new Task(task);
+  }
+
+  static async deleteMany(query) {
+    if (query.projectId) {
+      db.tasks = db.tasks.filter(t => t.projectId !== query.projectId);
+    }
+    return { deletedCount: db.tasks.length };
+  }
+
+  static async countDocuments(query = {}) {
+    let tasks = [...db.tasks];
+    
+    if (query.projectId) {
+      tasks = tasks.filter(t => t.projectId === query.projectId);
+    }
+    if (query.status) {
+      tasks = tasks.filter(t => t.status === query.status);
+    }
+    
+    return tasks.length;
+  }
+
+  populate(field) {
+    return this;
+  }
+
+  limit(n) {
+    return this;
+  }
+
+  skip(n) {
+    return this;
+  }
+
+  sort(criteria) {
+    return this;
+  }
+}
+
+module.exports = Task;

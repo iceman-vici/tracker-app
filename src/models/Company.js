@@ -1,100 +1,80 @@
-const mongoose = require('mongoose');
+// In-memory Company model (no MongoDB)
+const { db, generateId } = require('../config/database');
 
-const companySchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  description: {
-    type: String
-  },
-  logo: {
-    type: String
-  },
-  website: {
-    type: String
-  },
-  email: {
-    type: String,
-    required: true,
-    lowercase: true
-  },
-  phone: {
-    type: String
-  },
-  address: {
-    street: String,
-    city: String,
-    state: String,
-    country: String,
-    zipCode: String
-  },
-  ownerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  subscription: {
-    plan: {
-      type: String,
-      enum: ['free', 'starter', 'professional', 'enterprise'],
-      default: 'free'
-    },
-    status: {
-      type: String,
-      enum: ['active', 'cancelled', 'expired'],
-      default: 'active'
-    },
-    startDate: Date,
-    endDate: Date,
-    maxUsers: {
-      type: Number,
-      default: 5
-    }
-  },
-  settings: {
-    workingHours: {
-      start: { type: String, default: '09:00' },
-      end: { type: String, default: '18:00' }
-    },
-    workingDays: [{
-      type: Number,
-      min: 0,
-      max: 6
-    }],
-    timezone: {
-      type: String,
-      default: 'UTC'
-    },
-    currency: {
-      type: String,
-      default: 'USD'
-    },
-    dateFormat: {
-      type: String,
-      default: 'MM/DD/YYYY'
-    },
-    timeTracking: {
-      allowManualTime: { type: Boolean, default: true },
-      requireScreenshots: { type: Boolean, default: false },
-      screenshotInterval: { type: Number, default: 10 },
-      idleTimeout: { type: Number, default: 5 },
-      requireProjectSelection: { type: Boolean, default: true }
-    }
-  },
-  status: {
-    type: String,
-    enum: ['active', 'inactive', 'suspended'],
-    default: 'active'
+class Company {
+  constructor(data) {
+    this._id = data._id || generateId();
+    this.name = data.name;
+    this.description = data.description;
+    this.logo = data.logo;
+    this.website = data.website;
+    this.email = data.email;
+    this.phone = data.phone;
+    this.address = data.address || {};
+    this.ownerId = data.ownerId;
+    this.subscription = data.subscription || {
+      plan: 'free',
+      status: 'active',
+      maxUsers: 5
+    };
+    this.settings = data.settings || {
+      workingHours: { start: '09:00', end: '18:00' },
+      timezone: 'UTC',
+      currency: 'USD',
+      dateFormat: 'MM/DD/YYYY'
+    };
+    this.status = data.status || 'active';
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
   }
-}, {
-  timestamps: true
-});
 
-// Indexes
-companySchema.index({ name: 1 });
-companySchema.index({ ownerId: 1 });
-companySchema.index({ status: 1 });
+  async save() {
+    const existingIndex = db.companies.findIndex(c => c._id === this._id);
+    if (existingIndex >= 0) {
+      this.updatedAt = new Date();
+      db.companies[existingIndex] = this;
+    } else {
+      db.companies.push(this);
+    }
+    return this;
+  }
 
-module.exports = mongoose.model('Company', companySchema);
+  static async find(query = {}) {
+    let companies = [...db.companies];
+    if (query.ownerId) {
+      companies = companies.filter(c => c.ownerId === query.ownerId);
+    }
+    return companies.map(c => new Company(c));
+  }
+
+  static async findById(id) {
+    const company = db.companies.find(c => c._id === id);
+    return company ? new Company(company) : null;
+  }
+
+  static async findByIdAndUpdate(id, updates, options = {}) {
+    const index = db.companies.findIndex(c => c._id === id);
+    if (index === -1) return null;
+    
+    const company = db.companies[index];
+    const updated = { ...company, ...updates, updatedAt: new Date() };
+    db.companies[index] = updated;
+    
+    return new Company(updated);
+  }
+
+  static async findByIdAndDelete(id) {
+    const index = db.companies.findIndex(c => c._id === id);
+    if (index === -1) return null;
+    
+    const company = db.companies[index];
+    db.companies.splice(index, 1);
+    return new Company(company);
+  }
+
+  populate(field) {
+    return this;
+  }
+}
+
+module.exports = Company;
