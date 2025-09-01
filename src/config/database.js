@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/tracker-app', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
@@ -24,9 +24,16 @@ const connectDB = async () => {
       logger.info('MongoDB reconnected');
     });
 
+    // Graceful shutdown
+    process.on('SIGINT', async () => {
+      await mongoose.connection.close();
+      logger.info('MongoDB connection closed through app termination');
+      process.exit(0);
+    });
+
   } catch (error) {
-    logger.error('MongoDB connection failed:', error);
-    console.error('MongoDB connection failed:', error);
+    logger.error('Error connecting to MongoDB:', error);
+    console.error('Error connecting to MongoDB:', error);
     process.exit(1);
   }
 };

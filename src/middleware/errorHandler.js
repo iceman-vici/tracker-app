@@ -1,52 +1,97 @@
 const logger = require('../utils/logger');
 
 const errorHandler = (err, req, res, next) => {
-  let error = { ...err };
-  error.message = err.message;
-
   // Log error
-  logger.error('Error Handler:', {
-    error: err.message,
-    stack: err.stack,
-    url: req.originalUrl,
-    method: req.method,
-    ip: req.ip
-  });
-
-  // Mongoose bad ObjectId
-  if (err.name === 'CastError') {
-    const message = 'Resource not found';
-    error = { message, statusCode: 404 };
-  }
-
-  // Mongoose duplicate key
-  if (err.code === 11000) {
-    const field = Object.keys(err.keyValue)[0];
-    const message = `${field} already exists`;
-    error = { message, statusCode: 400 };
-  }
+  logger.error(err.stack || err.message);
 
   // Mongoose validation error
   if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message).join(', ');
-    error = { message, statusCode: 400 };
+    const errors = Object.values(err.errors).map(e => e.message);
+    return res.status(400).json({
+      success: false,
+      error: 'Validation Error',
+      details: errors
+    });
+  }
+
+  // Mongoose duplicate key error
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0];
+    return res.status(400).json({
+      success: false,
+      error: `Duplicate field value: ${field}`,
+      message: `A record with this ${field} already exists`
+    });
+  }
+
+  // Mongoose cast error
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid ID format',
+      message: `Invalid ${err.path}: ${err.value}`
+    });
   }
 
   // JWT errors
   if (err.name === 'JsonWebTokenError') {
-    const message = 'Invalid token';
-    error = { message, statusCode: 401 };
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid token',
+      message: 'Please provide a valid authentication token'
+    });
   }
 
   if (err.name === 'TokenExpiredError') {
-    const message = 'Token expired';
-    error = { message, statusCode: 401 };
+    return res.status(401).json({
+      success: false,
+      error: 'Token expired',
+      message: 'Your session has expired. Please login again'
+    });
   }
 
-  res.status(error.statusCode || 500).json({
+  // Multer file upload errors
+  if (err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        error: 'File too large',
+        message: 'The uploaded file exceeds the maximum allowed size'
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      error: 'File upload error',
+      message: err.message
+    });
+  }
+
+  // Custom application errors
+  if (err.statusCode) {
+    return res.status(err.statusCode).json({
+      success: false,
+      error: err.message || 'Application Error',
+      ...(err.details && { details: err.details })
+    });
+  }
+
+  // Rate limiting error
+  if (err.status === 429) {
+    return res.status(429).json({
+      success: false,
+      error: 'Too many requests',
+      message: 'Please wait before making another request'
+    });
+  }
+
+  // Default error
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+
+  res.status(statusCode).json({
     success: false,
-    message: error.message || 'Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : message,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
   });
 };
 
