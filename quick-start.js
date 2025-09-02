@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 /**
  * Quick Start Script for Time Doctor API
  * This script helps you quickly test connection to Time Doctor API
@@ -47,13 +50,30 @@ async function quickStart() {
 
   // Step 2: Get credentials
   console.log(`${colors.cyan}Step 2: Login Credentials${colors.reset}`);
-  console.log('\nPlease enter your Time Doctor credentials:');
   
-  const email = await question('Email: ');
-  const password = await question('Password: ');
+  // Check if credentials are in environment
+  const envCredentials = apiConfig.getCredentials();
+  let email, password, totpCode = '';
+  
+  if (envCredentials.email && envCredentials.password) {
+    console.log('\nCredentials found in .env file:');
+    console.log(`  Email: ${envCredentials.email}`);
+    
+    const useEnvCreds = await question('\nUse credentials from .env file? (y/n): ');
+    
+    if (useEnvCreds.toLowerCase() === 'y') {
+      email = envCredentials.email;
+      password = envCredentials.password;
+    }
+  }
+  
+  if (!email) {
+    console.log('\nPlease enter your Time Doctor credentials:');
+    email = await question('Email: ');
+    password = await question('Password: ');
+  }
   
   const has2FA = await question('Do you have 2FA enabled? (y/n): ');
-  let totpCode = '';
   if (has2FA.toLowerCase() === 'y') {
     totpCode = await question('Enter 2FA code: ');
   }

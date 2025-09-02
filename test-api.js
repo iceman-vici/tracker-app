@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 /**
  * Time Tracker API Test Script
  * Tests against Time Doctor Production API
