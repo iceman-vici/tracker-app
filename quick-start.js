@@ -34,87 +34,37 @@ async function quickStart() {
   console.log(`${colors.blue}     Time Doctor API - Quick Start${colors.reset}`);
   console.log(`${colors.blue}${'='.repeat(60)}${colors.reset}\n`);
 
-  // Step 1: Choose environment
-  console.log(`${colors.cyan}Step 1: Choose Environment${colors.reset}`);
-  console.log('1. Local Development Server (http://localhost:3000)');
-  console.log('2. Production Time Doctor API (https://api2.timedoctor.com)');
-  
-  const envChoice = await question('\nSelect environment (1 or 2): ');
-  const environment = envChoice.trim() === '2' ? 'production' : 'local';
-  
-  apiConfig.setEnvironment(environment);
+  // Step 1: Display API endpoint
+  console.log(`${colors.cyan}Step 1: API Configuration${colors.reset}`);
+  console.log(`Using Time Doctor Production API`);
   
   const client = new TimeDocktorClient({
     baseURL: apiConfig.getCurrentEndpoint().baseURL,
     debug: false
   });
 
-  console.log(`\n${colors.green}✓ Using ${apiConfig.getCurrentEndpoint().name}${colors.reset}`);
-  console.log(`${colors.green}  URL: ${apiConfig.getCurrentEndpoint().baseURL}${colors.reset}\n`);
+  console.log(`\n${colors.green}✓ API Endpoint: ${apiConfig.getCurrentEndpoint().baseURL}${colors.reset}\n`);
 
   // Step 2: Get credentials
   console.log(`${colors.cyan}Step 2: Login Credentials${colors.reset}`);
+  console.log('\nPlease enter your Time Doctor credentials:');
   
-  let email, password, totpCode = '';
+  const email = await question('Email: ');
+  const password = await question('Password: ');
   
-  if (environment === 'local') {
-    console.log('\nDefault local credentials:');
-    console.log('  Email: admin@example.com');
-    console.log('  Password: password123');
-    
-    const useDefault = await question('\nUse default credentials? (y/n): ');
-    
-    if (useDefault.toLowerCase() === 'y') {
-      email = 'admin@example.com';
-      password = 'password123';
-    }
-  }
-  
-  if (!email) {
-    email = await question('Email: ');
-    password = await question('Password: ');
-    
-    if (environment === 'production') {
-      const has2FA = await question('Do you have 2FA enabled? (y/n): ');
-      if (has2FA.toLowerCase() === 'y') {
-        totpCode = await question('Enter 2FA code: ');
-      }
-    }
+  const has2FA = await question('Do you have 2FA enabled? (y/n): ');
+  let totpCode = '';
+  if (has2FA.toLowerCase() === 'y') {
+    totpCode = await question('Enter 2FA code: ');
   }
 
   // Step 3: Test connection
   console.log(`\n${colors.cyan}Step 3: Testing Connection...${colors.reset}`);
   
   try {
-    // Check if server is running (for local)
-    if (environment === 'local') {
-      try {
-        const http = require('http');
-        await new Promise((resolve, reject) => {
-          http.get('http://localhost:3000/health', (res) => {
-            if (res.statusCode === 200) resolve();
-            else reject(new Error('Server not responding'));
-          }).on('error', reject);
-        });
-      } catch (error) {
-        console.log(`\n${colors.red}❌ Local server is not running!${colors.reset}`);
-        console.log(`${colors.yellow}Please start the server first: npm start${colors.reset}`);
-        rl.close();
-        return;
-      }
-    }
-
     // Login
     console.log('\n🔐 Logging in...');
-    let loginResponse;
-    
-    if (environment === 'production') {
-      // Use the full login method with all parameters for production
-      loginResponse = await client.login(email, password, totpCode || '', 'write');
-    } else {
-      // Simple login for local
-      loginResponse = await client.simpleLogin(email, password);
-    }
+    const loginResponse = await client.login(email, password, totpCode || '', 'write');
     
     console.log(`${colors.green}✅ Login successful!${colors.reset}`);
     
@@ -126,12 +76,6 @@ async function quickStart() {
       }
     } else if (loginResponse.token) {
       console.log(`   Token: ${loginResponse.token.substring(0, 20)}...`);
-    }
-    
-    // Display user info if available (local API)
-    if (loginResponse.user) {
-      console.log(`   User: ${loginResponse.user.email}`);
-      console.log(`   Role: ${loginResponse.user.role || 'user'}`);
     }
     
     // Step 4: Quick tests
@@ -182,7 +126,7 @@ async function quickStart() {
 const TimeDocktorClient = require('./src/clients/TimeDocktorClient');
 
 const client = new TimeDocktorClient({
-  baseURL: '${apiConfig.getCurrentEndpoint().baseURL}'
+  baseURL: 'https://api2.timedoctor.com/api/1.0'
 });
 
 // Login with proper parameters
@@ -198,19 +142,12 @@ ${colors.reset}`);
     console.log(`\n${colors.red}❌ Connection failed!${colors.reset}`);
     console.log(`${colors.red}Error: ${error.message}${colors.reset}`);
     
-    if (environment === 'production') {
-      console.log('\n💡 Troubleshooting tips:');
-      console.log('1. Check your Time Doctor credentials');
-      console.log('2. Ensure you have an active Time Doctor account');
-      console.log('3. If you have 2FA enabled, make sure to enter the correct code');
-      console.log('4. Check your internet connection');
-      console.log('5. Verify the API is accessible from your location');
-    } else {
-      console.log('\n💡 Troubleshooting tips:');
-      console.log('1. Make sure the local server is running: npm start');
-      console.log('2. Check if port 3000 is available');
-      console.log('3. Verify the credentials are correct');
-    }
+    console.log('\n💡 Troubleshooting tips:');
+    console.log('1. Check your Time Doctor credentials');
+    console.log('2. Ensure you have an active Time Doctor account');
+    console.log('3. If you have 2FA enabled, make sure to enter the correct code');
+    console.log('4. Check your internet connection');
+    console.log('5. Verify the API is accessible from your location');
   }
 
   rl.close();
