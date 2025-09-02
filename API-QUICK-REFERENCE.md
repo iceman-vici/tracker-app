@@ -1,13 +1,13 @@
-# 🚀 Time Tracker API - Quick Reference
+# 🚀 Time Doctor API - Quick Reference
 
 ## Base URL
 ```
-http://localhost:3000/api/1.0
+https://api2.timedoctor.com/api/1.0
 ```
 
 ## Authentication Header
 ```
-Authorization: Bearer YOUR_JWT_TOKEN
+Authorization: Bearer YOUR_TIMEDOCTOR_TOKEN
 ```
 
 ---
@@ -15,18 +15,17 @@ Authorization: Bearer YOUR_JWT_TOKEN
 ## 🔐 Authentication
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/register` | Register new user |
-| POST | `/login` | User login |
-| POST | `/refresh` | Refresh token |
-| POST | `/logout` | User logout |
+| POST | `/login` | Login to Time Doctor |
+| POST | `/logout` | Logout from Time Doctor |
+| POST | `/refresh` | Refresh authentication token |
 
 ---
 
 ## 👥 Users
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/users` | Get all users |
-| GET | `/users/me` | Get current user |
+| GET | `/users` | Get all users from your Time Doctor account |
+| GET | `/users/me` | Get current user profile |
 | GET | `/users/:id` | Get user by ID |
 | PUT | `/users/:id` | Update user |
 | DELETE | `/users/:id` | Delete user |
@@ -69,9 +68,9 @@ Authorization: Bearer YOUR_JWT_TOKEN
 ## ⏱️ Worklogs (Time Tracking)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/worklogs` | Get all worklogs |
+| GET | `/worklogs` | Get all time entries |
 | GET | `/worklogs/:id` | Get worklog by ID |
-| POST | `/worklogs` | Create worklog |
+| POST | `/worklogs` | Create time entry |
 | POST | `/worklogs/start` | Start timer |
 | POST | `/worklogs/:id/stop` | Stop timer |
 | PUT | `/worklogs/:id` | Update worklog |
@@ -153,33 +152,51 @@ Authorization: Bearer YOUR_JWT_TOKEN
 
 ## 🧪 Quick Test Commands
 
-### 1. Get JWT Token
+### 1. Login to Time Doctor
 ```bash
-curl -X POST http://localhost:3000/api/1.0/login \
+curl -X POST https://api2.timedoctor.com/api/1.0/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"password123"}'
+  -d '{
+    "email": "your-email@example.com",
+    "password": "your-password",
+    "permissions": "write"
+  }'
 ```
 
-### 2. Create Project
+### 2. Get Your Time Doctor Users
 ```bash
-curl -X POST http://localhost:3000/api/1.0/projects \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Test Project","description":"API Testing"}'
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+     "https://api2.timedoctor.com/api/1.0/users"
 ```
 
-### 3. Start Time Tracking
+### 3. Get Users with Filters
 ```bash
-curl -X POST http://localhost:3000/api/1.0/worklogs/start \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"project_id":"PROJECT_ID","description":"Working"}'
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+     "https://api2.timedoctor.com/api/1.0/users?filter[role]=admin&detail=full"
 ```
 
-### 4. Get Reports
+### 4. Get Your Profile
 ```bash
-curl -X GET "http://localhost:3000/api/1.0/reports/summary?from=2025-09-01&to=2025-09-30" \
-  -H "Authorization: Bearer YOUR_TOKEN"
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+     "https://api2.timedoctor.com/api/1.0/users/me"
+```
+
+### 5. Get Projects
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+     "https://api2.timedoctor.com/api/1.0/projects"
+```
+
+### 6. Get Time Entries
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+     "https://api2.timedoctor.com/api/1.0/worklogs?from=2024-01-01&to=2024-01-31"
+```
+
+### 7. Get Reports
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+     "https://api2.timedoctor.com/api/1.0/reports/summary?from=2024-01-01&to=2024-01-31"
 ```
 
 ---
@@ -199,54 +216,54 @@ curl -X GET "http://localhost:3000/api/1.0/reports/summary?from=2025-09-01&to=20
 - `status`: Filter by status
 - `user_id`: Filter by user
 - `project_id`: Filter by project
+- `company`: Your Time Doctor company ID
 
 ---
 
-## ⚡ Quick Start Script
+## ⚡ Time Doctor Users API - Complete Parameters
 
+### All Supported Query Parameters:
+```
+company, user, manager, tag, self, detail, task-project-names, 
+no-tag, include-archived-users, deleted, page, limit, sort,
+filter[id], filter[email], filter[name], filter[tag], 
+filter[keywords], filter[role], filter[showOnReports], 
+filter[invitePending], filter[inviteAccepted], filter[payrollAccess], 
+filter[screenshots], filter[videos], filter[created], filter[hostName], 
+filter[os], filter[hiredAt], filter[lastTrack], filter[lastActiveTrack], 
+filter[clientVersion], filter[ip], filter[show-on-reports], 
+filter[payroll-access], filter[host-name], filter[hired-at], 
+filter[last-track], filter[last-active-track], filter[client-version], 
+filter[invite-pending], filter[invite-accepted], filter[tag-count]
+```
+
+### Example Time Doctor Users Query:
 ```bash
-#!/bin/bash
-
-# 1. Start server
-npm start &
-
-# 2. Wait for server
-sleep 3
-
-# 3. Login and get token
-TOKEN=$(curl -s -X POST http://localhost:3000/api/1.0/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"password123"}' \
-  | grep -o '"token":"[^"]*' | cut -d'"' -f4)
-
-# 4. Create project
-PROJECT_ID=$(curl -s -X POST http://localhost:3000/api/1.0/projects \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Quick Test Project"}' \
-  | grep -o '"_id":"[^"]*' | cut -d'"' -f4)
-
-# 5. Start tracking
-curl -X POST http://localhost:3000/api/1.0/worklogs/start \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"project_id\":\"$PROJECT_ID\",\"description\":\"Quick test\"}"
-
-echo "API testing setup complete!"
-echo "Token: $TOKEN"
-echo "Project ID: $PROJECT_ID"
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  "https://api2.timedoctor.com/api/1.0/users?company=YOUR_COMPANY_ID&detail=full&task-project-names=true&filter[role]=admin&filter[showOnReports]=true&page=1&limit=10&sort=email"
 ```
 
 ---
 
-## 🎯 Test Default Credentials
+## 🔑 Environment Setup
 
-### Local Development
-- **Email:** `admin@example.com`
-- **Password:** `password123`
+Create `.env` file:
+```env
+TIMEDOCTOR_API_URL=https://api2.timedoctor.com/api/1.0
+TIMEDOCTOR_EMAIL=your-email@example.com
+TIMEDOCTOR_PASSWORD=your-password
+TIMEDOCTOR_COMPANY_ID=your-company-id
+```
 
-### Production
-- Use your actual Time Doctor credentials
+---
+
+## ⚠️ Important Notes
+
+- **Production API:** All requests go to Time Doctor's live API
+- **Rate Limits:** Respect Time Doctor's API rate limits
+- **Authentication:** Use your actual Time Doctor account credentials
+- **Company ID:** Required for most endpoints
+- **Permissions:** Request appropriate permission levels (read/write/admin)
 
 ---
 
@@ -254,4 +271,11 @@ echo "Project ID: $PROJECT_ID"
 
 - 📖 [Complete Testing Guide](API-TESTING-GUIDE.md)
 - 📋 [Main README](README.md)
+- 🔗 [Time Doctor API Docs](https://timedoctor.redoc.ly/)
 - 🐛 [Report Issues](https://github.com/iceman-vici/tracker-app/issues)
+
+---
+
+**Time Doctor API:** https://api2.timedoctor.com/api/1.0  
+**Documentation:** https://timedoctor.redoc.ly/  
+**Last Updated:** September 2025
