@@ -38,7 +38,7 @@ class TimeDocktorClient {
     };
 
     if (this.token) {
-      // Time Doctor uses just the token value in Authorization header
+      // Time Doctor uses just the token value in Authorization header (no "Bearer" prefix)
       config.headers['Authorization'] = this.token;
     }
 
@@ -51,6 +51,9 @@ class TimeDocktorClient {
     }
 
     this.log(`${method} ${url}`, params || data || '');
+    if (this.token) {
+      this.log('Using token:', this.token.substring(0, 20) + '...');
+    }
 
     try {
       const response = await axios(config);
@@ -77,40 +80,78 @@ class TimeDocktorClient {
    * @returns {Promise<Object>} Login response with token
    */
   async login(email, password, totpCode = '', permissions = 'write') {
-    const response = await this.request('POST', '/login', {
+    const loginData = {
       email,
-      password,
-      totpCode: totpCode || 'string',  // Time Doctor expects 'string' if no TOTP
-      permissions: permissions || 'write'
-    });
-
-    // Time Doctor API returns token in data.token
+      password
+    };
+    
+    // Only add totpCode if it's provided and not empty
+    if (totpCode && totpCode !== '') {
+      loginData.totpCode = totpCode;
+    }
+    
+    // Add permissions if specified
+    if (permissions) {
+      loginData.permissions = permissions;
+    }
+    
+    this.log('Login attempt with:', { email, hasPassword: !!password, hasTotpCode: !!totpCode });
+    
+    const response = await this.request('POST', '/login', loginData);
+    
+    // Debug: Log the entire response structure
+    this.log('Login response structure:', JSON.stringify(response, null, 2));
+    
+    // Try different possible token locations in the response
+    let token = null;
+    
+    // Check for token in various possible locations
     if (response.data && response.data.token) {
-      this.token = response.data.token;
-      this.log('Login successful, token saved');
+      token = response.data.token;
+    } else if (response.token) {
+      token = response.token;
+    } else if (typeof response === 'string') {
+      // Sometimes the token might be returned as a plain string
+      token = response;
+    } else if (response.access_token) {
+      token = response.access_token;
+    } else if (response.accessToken) {
+      token = response.accessToken;
+    }
+    
+    if (token) {
+      this.token = token;
+      this.log('Login successful, token saved:', token.substring(0, 20) + '...');
       
       // Store additional info if available
-      if (response.data.expireAt) {
-        this.tokenExpiry = response.data.expireAt;
-        this.log('Token expires at:', response.data.expireAt);
+      if (response.data) {
+        if (response.data.expireAt) {
+          this.tokenExpiry = response.data.expireAt;
+          this.log('Token expires at:', response.data.expireAt);
+        }
+        if (response.data.createdAt) {
+          this.log('Token created at:', response.data.createdAt);
+        }
+        if (response.data.company || response.data.companyId) {
+          this.companyId = response.data.company || response.data.companyId;
+          this.log('Company ID:', this.companyId);
+        }
+        if (response.data.user || response.data.userId) {
+          this.userId = response.data.user || response.data.userId;
+          this.log('User ID:', this.userId);
+        }
       }
-      if (response.data.createdAt) {
-        this.log('Token created at:', response.data.createdAt);
+      
+      // Check for company/user info at root level
+      if (response.company || response.companyId) {
+        this.companyId = response.company || response.companyId;
       }
-    } else if (response.token) {
-      // Fallback for local API compatibility
-      this.token = response.token;
-      this.log('Login successful, token saved');
-    }
-
-    // For local API compatibility
-    if (response.user) {
-      if (response.user.company_id) {
-        this.companyId = response.user.company_id;
+      if (response.user || response.userId) {
+        this.userId = response.user || response.userId;
       }
-      if (response.user.id) {
-        this.userId = response.user.id;
-      }
+    } else {
+      this.log('Warning: No token found in login response');
+      this.log('Response keys:', Object.keys(response));
     }
 
     return response;
@@ -191,10 +232,17 @@ class TimeDocktorClient {
    * @returns {Promise<Object>} Users list
    */
   async getUsers(params = {}) {
-    if (this.companyId && !params.company) {
-      params.company = this.companyId;
+    // Add default parameters if needed
+    const queryParams = {
+      ...params
+    };
+    
+    // If company ID is available, add it
+    if (this.companyId && !queryParams.company) {
+      queryParams.company = this.companyId;
     }
-    return this.request('GET', '/users', null, params);
+    
+    return this.request('GET', '/users', null, queryParams);
   }
 
   /**
@@ -246,10 +294,15 @@ class TimeDocktorClient {
    * Get projects
    */
   async getProjects(params = {}) {
-    if (this.companyId && !params.company) {
-      params.company = this.companyId;
+    const queryParams = {
+      ...params
+    };
+    
+    if (this.companyId && !queryParams.company) {
+      queryParams.company = this.companyId;
     }
-    return this.request('GET', '/projects', null, params);
+    
+    return this.request('GET', '/projects', null, queryParams);
   }
 
   /**
@@ -289,10 +342,15 @@ class TimeDocktorClient {
    * Get tasks
    */
   async getTasks(params = {}) {
-    if (this.companyId && !params.company) {
-      params.company = this.companyId;
+    const queryParams = {
+      ...params
+    };
+    
+    if (this.companyId && !queryParams.company) {
+      queryParams.company = this.companyId;
     }
-    return this.request('GET', '/tasks', null, params);
+    
+    return this.request('GET', '/tasks', null, queryParams);
   }
 
   /**
@@ -330,16 +388,22 @@ class TimeDocktorClient {
    * @param {Object} params - Query parameters
    * @param {string} params.from - Start date (ISO 8601)
    * @param {string} params.to - End date (ISO 8601)
-   * @param {string} params.user_id - Filter by user
-   * @param {string} params.project_id - Filter by project
-   * @param {string} params.task_id - Filter by task
+   * @param {string} params.user - Filter by user
+   * @param {string} params.project - Filter by project
+   * @param {string} params.task - Filter by task
    * @returns {Promise<Object>} Worklogs
    */
   async getWorklogs(params = {}) {
-    if (this.companyId && !params.company_id) {
-      params.company_id = this.companyId;
+    const queryParams = {
+      ...params
+    };
+    
+    // Note: Time Doctor API uses 'company' not 'company_id' for worklogs
+    if (this.companyId && !queryParams.company) {
+      queryParams.company = this.companyId;
     }
-    return this.request('GET', '/worklogs', null, params);
+    
+    return this.request('GET', '/worklogs', null, queryParams);
   }
 
   /**
@@ -353,8 +417,8 @@ class TimeDocktorClient {
    * Create worklog (start time tracking)
    */
   async createWorklog(data) {
-    if (this.companyId && !data.company_id) {
-      data.company_id = this.companyId;
+    if (this.companyId && !data.company) {
+      data.company = this.companyId;
     }
     return this.request('POST', '/worklogs', data);
   }
@@ -400,10 +464,15 @@ class TimeDocktorClient {
    * Get activity
    */
   async getActivity(params = {}) {
-    if (this.companyId && !params.company_id) {
-      params.company_id = this.companyId;
+    const queryParams = {
+      ...params
+    };
+    
+    if (this.companyId && !queryParams.company) {
+      queryParams.company = this.companyId;
     }
-    return this.request('GET', '/activity', null, params);
+    
+    return this.request('GET', '/activity', null, queryParams);
   }
 
   /**
@@ -413,23 +482,36 @@ class TimeDocktorClient {
     return this.request('POST', '/activity/log', data);
   }
 
-  // ==================== Screenshots ====================
+  // ==================== Screenshots / Files ====================
 
   /**
-   * Get screenshots
+   * Get screenshots/files
    */
   async getScreenshots(params = {}) {
-    if (this.companyId && !params.company_id) {
-      params.company_id = this.companyId;
+    const queryParams = {
+      ...params
+    };
+    
+    if (this.companyId && !queryParams.company) {
+      queryParams.company = this.companyId;
     }
-    return this.request('GET', '/screenshots', null, params);
+    
+    // Time Doctor API uses /files endpoint for screenshots
+    return this.request('GET', '/files', null, queryParams);
+  }
+  
+  /**
+   * Get files (alias for screenshots)
+   */
+  async getFiles(params = {}) {
+    return this.getScreenshots(params);
   }
 
   /**
    * Upload screenshot
    */
   async uploadScreenshot(data) {
-    return this.request('POST', '/screenshots/upload', data);
+    return this.request('POST', '/files/upload', data);
   }
 
   // ==================== Reports ====================
@@ -438,30 +520,45 @@ class TimeDocktorClient {
    * Get summary report
    */
   async getSummaryReport(params = {}) {
-    if (this.companyId && !params.company_id) {
-      params.company_id = this.companyId;
+    const queryParams = {
+      ...params
+    };
+    
+    if (this.companyId && !queryParams.company) {
+      queryParams.company = this.companyId;
     }
-    return this.request('GET', '/reports/summary', null, params);
+    
+    return this.request('GET', '/reports/summary', null, queryParams);
   }
 
   /**
    * Get timesheet report
    */
   async getTimesheetReport(params = {}) {
-    if (this.companyId && !params.company_id) {
-      params.company_id = this.companyId;
+    const queryParams = {
+      ...params
+    };
+    
+    if (this.companyId && !queryParams.company) {
+      queryParams.company = this.companyId;
     }
-    return this.request('GET', '/reports/timesheet', null, params);
+    
+    return this.request('GET', '/reports/timesheet', null, queryParams);
   }
 
   /**
    * Get productivity report
    */
   async getProductivityReport(params = {}) {
-    if (this.companyId && !params.company_id) {
-      params.company_id = this.companyId;
+    const queryParams = {
+      ...params
+    };
+    
+    if (this.companyId && !queryParams.company) {
+      queryParams.company = this.companyId;
     }
-    return this.request('GET', '/reports/productivity', null, params);
+    
+    return this.request('GET', '/reports/productivity', null, queryParams);
   }
 
   // ==================== Utility Methods ====================
@@ -471,6 +568,7 @@ class TimeDocktorClient {
    */
   setToken(token) {
     this.token = token;
+    this.log('Token manually set:', token.substring(0, 20) + '...');
   }
 
   /**
@@ -478,6 +576,7 @@ class TimeDocktorClient {
    */
   setCompanyId(companyId) {
     this.companyId = companyId;
+    this.log('Company ID set:', companyId);
   }
 
   /**
@@ -493,7 +592,7 @@ class TimeDocktorClient {
   getConfig() {
     return {
       baseURL: this.baseURL,
-      token: this.token ? `${this.token.substring(0, 10)}...` : null,
+      token: this.token ? `${this.token.substring(0, 20)}...` : null,
       tokenExpiry: this.tokenExpiry,
       companyId: this.companyId,
       userId: this.userId,
