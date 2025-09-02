@@ -1,37 +1,22 @@
 /**
  * API Configuration
- * Switch between local development server and production Time Doctor API
+ * Uses Time Doctor Production API
  */
 
 const config = {
-  // Environment: 'local' or 'production'
-  environment: process.env.API_ENV || 'local',
-
-  // API endpoints
-  endpoints: {
-    local: {
-      baseURL: 'http://localhost:3000/api/1.0',
-      name: 'Local Development Server',
-      requiresAuth: true
-    },
-    production: {
-      baseURL: 'https://api2.timedoctor.com/api/1.0',
-      name: 'Time Doctor Production API',
-      requiresAuth: true
-    }
+  // API endpoint - Production Time Doctor API only
+  endpoint: {
+    baseURL: 'https://api2.timedoctor.com/api/1.0',
+    name: 'Time Doctor Production API',
+    requiresAuth: true
   },
 
-  // Default credentials for local testing
-  testCredentials: {
-    local: {
-      email: 'admin@example.com',
-      password: 'password123'
-    },
-    production: {
-      // Add your Time Doctor credentials here (DO NOT COMMIT!)
-      email: process.env.TIMEDOCTOR_EMAIL || '',
-      password: process.env.TIMEDOCTOR_PASSWORD || ''
-    }
+  // Credentials from environment variables
+  credentials: {
+    // Add your Time Doctor credentials here (DO NOT COMMIT!)
+    email: process.env.TIMEDOCTOR_EMAIL || '',
+    password: process.env.TIMEDOCTOR_PASSWORD || '',
+    apiKey: process.env.TIMEDOCTOR_API_KEY || ''
   },
 
   // API settings
@@ -51,22 +36,12 @@ const config = {
 
 // Get current API configuration
 config.getCurrentEndpoint = function() {
-  return this.endpoints[this.environment];
+  return this.endpoint;
 };
 
-// Get current test credentials
-config.getTestCredentials = function() {
-  return this.testCredentials[this.environment];
-};
-
-// Switch environment
-config.setEnvironment = function(env) {
-  if (this.endpoints[env]) {
-    this.environment = env;
-    console.log(`Switched to ${env} environment:`, this.endpoints[env].name);
-  } else {
-    throw new Error(`Invalid environment: ${env}`);
-  }
+// Get credentials
+config.getCredentials = function() {
+  return this.credentials;
 };
 
 module.exports = config;
