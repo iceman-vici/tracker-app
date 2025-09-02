@@ -154,6 +154,20 @@ router.post('/login', [
       { expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d' }
     );
 
+    // ✨ LOG TOKEN FOR EASY TESTING ✨
+    console.log('\n' + '='.repeat(80));
+    console.log('🔑 LOGIN SUCCESSFUL - COPY TOKEN FOR API TESTING');
+    console.log('='.repeat(80));
+    console.log('📧 Email:', email);
+    console.log('👤 Role:', user.role);
+    console.log('🔐 Permissions:', userPermissions);
+    console.log('🎫 TOKEN (copy this for Authorization header):');
+    console.log('Bearer ' + token);
+    console.log('\n💡 Example usage:');
+    console.log('curl -H "Authorization: Bearer ' + token + '" \\');
+    console.log('     "http://localhost:3000/api/1.0/users"');
+    console.log('='.repeat(80) + '\n');
+
     // Log successful login
     logger.info(`User ${email} logged in successfully with ${userPermissions} permissions`);
 
@@ -278,6 +292,17 @@ router.post('/register', [
       { expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d' }
     );
 
+    // ✨ LOG TOKEN FOR NEW USER ✨
+    console.log('\n' + '='.repeat(80));
+    console.log('🎉 USER REGISTERED - COPY TOKEN FOR API TESTING');
+    console.log('='.repeat(80));
+    console.log('📧 Email:', email);
+    console.log('👤 Role: user');
+    console.log('🔐 Permissions: read');
+    console.log('🎫 TOKEN (copy this for Authorization header):');
+    console.log('Bearer ' + token);
+    console.log('='.repeat(80) + '\n');
+
     logger.info(`New user registered: ${email}`);
 
     res.status(201).json({
@@ -316,6 +341,7 @@ router.post('/logout', async (req, res) => {
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      console.log('\n🚪 User logged out:', decoded.email);
       logger.info(`User ${decoded.email} logged out`);
     } catch (err) {
       // Token invalid, but still allow logout
@@ -382,6 +408,11 @@ router.post('/refresh', [
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: process.env.JWT_EXPIRE || '24h' }
     );
+
+    // ✨ LOG REFRESHED TOKEN ✨
+    console.log('\n🔄 TOKEN REFRESHED - NEW TOKEN:');
+    console.log('Bearer ' + token);
+    console.log('');
 
     res.json({ 
       message: 'Token refreshed successfully',
