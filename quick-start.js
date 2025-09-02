@@ -55,7 +55,7 @@ async function quickStart() {
   // Step 2: Get credentials
   console.log(`${colors.cyan}Step 2: Login Credentials${colors.reset}`);
   
-  let email, password;
+  let email, password, totpCode = '';
   
   if (environment === 'local') {
     console.log('\nDefault local credentials:');
@@ -73,6 +73,13 @@ async function quickStart() {
   if (!email) {
     email = await question('Email: ');
     password = await question('Password: ');
+    
+    if (environment === 'production') {
+      const has2FA = await question('Do you have 2FA enabled? (y/n): ');
+      if (has2FA.toLowerCase() === 'y') {
+        totpCode = await question('Enter 2FA code: ');
+      }
+    }
   }
 
   // Step 3: Test connection
@@ -99,11 +106,33 @@ async function quickStart() {
 
     // Login
     console.log('\n🔐 Logging in...');
-    const loginResponse = await client.login(email, password);
+    let loginResponse;
+    
+    if (environment === 'production') {
+      // Use the full login method with all parameters for production
+      loginResponse = await client.login(email, password, totpCode || '', 'write');
+    } else {
+      // Simple login for local
+      loginResponse = await client.simpleLogin(email, password);
+    }
     
     console.log(`${colors.green}✅ Login successful!${colors.reset}`);
-    console.log(`   User: ${loginResponse.user.email}`);
-    console.log(`   Role: ${loginResponse.user.role || 'user'}`);
+    
+    // Display token info
+    if (loginResponse.data) {
+      console.log(`   Token: ${loginResponse.data.token.substring(0, 20)}...`);
+      if (loginResponse.data.expireAt) {
+        console.log(`   Expires: ${loginResponse.data.expireAt}`);
+      }
+    } else if (loginResponse.token) {
+      console.log(`   Token: ${loginResponse.token.substring(0, 20)}...`);
+    }
+    
+    // Display user info if available (local API)
+    if (loginResponse.user) {
+      console.log(`   User: ${loginResponse.user.email}`);
+      console.log(`   Role: ${loginResponse.user.role || 'user'}`);
+    }
     
     // Step 4: Quick tests
     console.log(`\n${colors.cyan}Step 4: Running Quick Tests...${colors.reset}`);
@@ -156,7 +185,11 @@ const client = new TimeDocktorClient({
   baseURL: '${apiConfig.getCurrentEndpoint().baseURL}'
 });
 
-await client.login('${email}', 'your-password');
+// Login with proper parameters
+await client.login('${email}', 'your-password', '', 'write');
+// Or use simple login for convenience
+await client.simpleLogin('${email}', 'your-password');
+
 const worklogs = await client.getWorklogs();
 console.log(worklogs);
 ${colors.reset}`);
@@ -169,8 +202,9 @@ ${colors.reset}`);
       console.log('\n💡 Troubleshooting tips:');
       console.log('1. Check your Time Doctor credentials');
       console.log('2. Ensure you have an active Time Doctor account');
-      console.log('3. Check your internet connection');
-      console.log('4. Verify the API is accessible from your location');
+      console.log('3. If you have 2FA enabled, make sure to enter the correct code');
+      console.log('4. Check your internet connection');
+      console.log('5. Verify the API is accessible from your location');
     } else {
       console.log('\n💡 Troubleshooting tips:');
       console.log('1. Make sure the local server is running: npm start');
@@ -204,7 +238,7 @@ function showBanner() {
 ║                                                          ║
 ║                    API Quick Start                      ║
 ║                                                          ║
-╚══════════════════════════════════════════════════════════╝
+╚══════════════════════════════════════════════════════════╗
 ${colors.reset}`);
 }
 

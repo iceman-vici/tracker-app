@@ -54,10 +54,21 @@ async function runExamples() {
       return;
     }
 
-    const loginResponse = await client.login(credentials.email, credentials.password);
+    let loginResponse;
+    if (environment === 'production') {
+      // For production, use full login with all parameters
+      loginResponse = await client.login(credentials.email, credentials.password, '', 'write');
+    } else {
+      // For local, use simple login
+      loginResponse = await client.simpleLogin(credentials.email, credentials.password);
+    }
+    
     printResult('Login Response', {
-      token: loginResponse.token ? `${loginResponse.token.substring(0, 20)}...` : null,
-      user: loginResponse.user
+      token: loginResponse.data ? 
+        (loginResponse.data.token ? `${loginResponse.data.token.substring(0, 20)}...` : null) : 
+        (loginResponse.token ? `${loginResponse.token.substring(0, 20)}...` : null),
+      expireAt: loginResponse.data ? loginResponse.data.expireAt : null,
+      user: loginResponse.user || null
     });
 
     // 2. Get current user
@@ -195,7 +206,12 @@ async function interactive() {
       case '2':
         try {
           const creds = apiConfig.getTestCredentials();
-          const loginResp = await client.login(creds.email, creds.password);
+          let loginResp;
+          if (environment === 'production') {
+            loginResp = await client.login(creds.email, creds.password, '', 'write');
+          } else {
+            loginResp = await client.simpleLogin(creds.email, creds.password);
+          }
           printResult('Login Test', loginResp);
         } catch (error) {
           handleError('login', error);
