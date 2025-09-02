@@ -5,11 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const mongoSanitize = require('express-mongo-sanitize');
-const xss = require('xss-clean');
-const hpp = require('hpp');
 const compression = require('compression');
-const morgan = require('morgan');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const connectDB = require('./config/database');
@@ -45,7 +41,7 @@ const io = new Server(httpServer, {
   pingInterval: 25000
 });
 
-// Connect to MongoDB
+// Connect to in-memory database
 connectDB();
 
 // Trust proxy for rate limiting behind reverse proxy
@@ -57,9 +53,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Security middleware
 app.use(helmet());
-app.use(mongoSanitize());
-app.use(xss());
-app.use(hpp());
 
 // CORS configuration
 app.use(cors({
@@ -72,12 +65,13 @@ app.use(cors({
 // Compression middleware
 app.use(compression());
 
-// Logging middleware
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
-}
+// Simple logging middleware
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+  }
+  next();
+});
 
 // Rate limiting
 const limiter = rateLimit({

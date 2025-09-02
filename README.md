@@ -1,356 +1,271 @@
-# Time Tracker API - Time Doctor Client & Testing Suite
+# Time Tracker API
 
-## 📋 Overview
+A production-ready Time Tracker API that connects to Time Doctor's official API for time tracking, project management, and productivity monitoring.
 
-**🎯 Complete Time Doctor API Client & Testing Suite**
+## Features
 
-This repository provides a comprehensive **Time Doctor API client** with full testing capabilities for the production Time Doctor API at `https://api2.timedoctor.com/api/1.0`.
+- ✅ **Time Doctor API Integration** - Connects directly to Time Doctor production API
+- ✅ **In-Memory Database** - No MongoDB required, runs with in-memory storage
+- ✅ **Authentication & Authorization** - JWT-based authentication with role-based access
+- ✅ **Real-time Updates** - WebSocket support for live updates
+- ✅ **RESTful API** - Clean, well-documented API endpoints
+- ✅ **Time Tracking** - Start/stop timers, log work hours, track productivity
+- ✅ **Project & Task Management** - Create and manage projects and tasks
+- ✅ **Reports & Analytics** - Generate time reports and productivity analytics
+- ✅ **Screenshots & Activity** - Support for screenshot capture and activity monitoring
 
-### 🏆 **What This Provides:**
-1. **🎯 Complete Time Doctor Integration** - Full production API client
-2. **🔐 Enhanced Authentication** - 2FA, permissions, role-based access
-3. **👥 Complete Users Management** - All 45+ Time Doctor query parameters supported
-4. **🧪 Comprehensive Testing Suite** - Auto-logging, dedicated test scripts
-5. **📚 Extensive Documentation** - 30KB+ of guides and examples
+## Prerequisites
 
----
+- Node.js 18.0.0 or higher
+- npm or yarn
+- Time Doctor account with API access
 
-## 🚀 **Quick Demo - Connect to Time Doctor API**
+## Quick Start
+
+### 1. Clone the repository
 
 ```bash
-# 1. Clone and setup
 git clone https://github.com/iceman-vici/tracker-app.git
-cd tracker-app && npm install
+cd tracker-app
+```
 
-# 2. Configure your Time Doctor credentials
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure environment
+
+Copy the example environment file and add your Time Doctor credentials:
+
+```bash
 cp .env.example .env
-# Edit .env with your Time Doctor credentials
+```
 
-# 3. Start the client
+Edit `.env` and add your Time Doctor credentials:
+
+```env
+TIMEDOCTOR_EMAIL=your-email@example.com
+TIMEDOCTOR_PASSWORD=your-password
+TIMEDOCTOR_API_KEY=your-api-key-if-required
+```
+
+### 4. Test the connection
+
+```bash
+node quick-start.js
+```
+
+### 5. Run API tests
+
+```bash
+node test-api.js
+```
+
+### 6. Start the server (optional)
+
+If you want to run a local server that proxies to Time Doctor API:
+
+```bash
 npm start
-
-# 4. Login to Time Doctor (token + users automatically displayed)
-curl -X POST https://api2.timedoctor.com/api/1.0/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "your-email@example.com",
-    "password": "your-password",
-    "permissions": "write"
-  }'
-
-# 5. Use the logged token to test users API
-curl -H "Authorization: Bearer YOUR_TOKEN_FROM_RESPONSE" \
-     "https://api2.timedoctor.com/api/1.0/users?detail=full&filter[role]=admin"
 ```
 
----
+The server will start on `http://localhost:3000`
 
-## 🎯 **Time Doctor API Integration**
+## API Configuration
 
-### 🔗 **Production API URL**
-```
-https://api2.timedoctor.com/api/1.0
-```
+The application is configured to use the Time Doctor production API:
+- **Base URL**: `https://api2.timedoctor.com/api/1.0`
+- **Authentication**: Email/Password with optional 2FA support
 
-### 📡 **Supported Endpoints**
+## Time Doctor API Client
 
-| Category | Endpoint | Status | Features |
-|----------|----------|---------|-----------|
-| **Auth** | `POST /login` | ✅ Complete | 2FA, permissions, auto-logging |
-| **Auth** | `POST /logout` | ✅ Complete | Session management |
-| **Users** | `GET /users` | ✅ Complete | All 45+ Time Doctor parameters |
-| **Users** | `GET /users/me` | ✅ Complete | Current user profile |
-| **Users** | `GET /users/:id` | ✅ Complete | Specific user details |
-| **Projects** | `GET /projects` | ✅ Available | Project management |
-| **Tasks** | `GET /tasks` | ✅ Available | Task management |
-| **Worklogs** | `GET /worklogs` | ✅ Available | Time tracking |
-| **Reports** | `GET /reports/*` | ✅ Available | Analytics & reporting |
+The main API client is located in `src/clients/TimeDocktorClient.js`. It provides methods for:
 
----
+### Authentication
+- `login(email, password, totpCode, permissions)` - Full login with all parameters
+- `simpleLogin(email, password)` - Simplified login without 2FA
+- `loginWith2FA(email, password, totpCode)` - Login with 2FA
+- `logout()` - End session
+- `refreshToken(refreshToken)` - Refresh authentication token
 
-## 🔐 **Time Doctor Authentication**
+### Users
+- `getUsers(params)` - Get list of users
+- `getUser(userId)` - Get specific user
+- `getMe()` - Get current user
 
-### 🎫 **Enhanced Login with 2FA**
+### Projects
+- `getProjects(params)` - Get list of projects
+- `getProject(projectId)` - Get specific project
+- `createProject(data)` - Create new project
+- `updateProject(projectId, data)` - Update project
+- `deleteProject(projectId)` - Delete project
 
-**Request to Time Doctor API:**
-```json
-{
-  "email": "your-email@timedoctor.com",
-  "password": "your-password",
-  "totpCode": "123456",
-  "permissions": "write"
-}
-```
+### Tasks
+- `getTasks(params)` - Get list of tasks
+- `getTask(taskId)` - Get specific task
+- `createTask(data)` - Create new task
+- `updateTask(taskId, data)` - Update task
+- `deleteTask(taskId)` - Delete task
 
-**Console Auto-Logging Output:**
-```
-🎉 TIME DOCTOR LOGIN SUCCESSFUL - TOKEN & USERS DATA
-📧 Logged in as: your-email@timedoctor.com
-👤 Role: admin
-🔐 Permissions: write
-🎫 TOKEN: Bearer eyJhbGciOiJIUzI1NiIs...
+### Time Tracking (Worklogs)
+- `getWorklogs(params)` - Get time entries
+- `getWorklog(worklogId)` - Get specific time entry
+- `createWorklog(data)` - Create time entry
+- `updateWorklog(worklogId, data)` - Update time entry
+- `deleteWorklog(worklogId)` - Delete time entry
+- `startTracking(projectId, taskId, description)` - Start timer
+- `stopTracking(worklogId)` - Stop timer
 
-👥 YOUR TIME DOCTOR USERS:
-1. John Manager (john@company.com)
-   ID: user_12345 | Role: manager | Status: active
-2. Jane Developer (jane@company.com) 
-   ID: user_67890 | Role: user | Status: active
+### Reports
+- `getSummaryReport(params)` - Get summary report
+- `getTimesheetReport(params)` - Get timesheet report
+- `getProductivityReport(params)` - Get productivity report
 
-💡 Ready-to-use Time Doctor API commands provided...
-```
+### Activity & Screenshots
+- `getActivity(params)` - Get activity data
+- `logActivity(data)` - Log activity
+- `getScreenshots(params)` - Get screenshots
+- `uploadScreenshot(data)` - Upload screenshot
 
-### 🔑 **Your Time Doctor Credentials**
+## Usage Examples
 
-Update `.env` file:
-```env
-# Time Doctor API Configuration
-TIMEDOCTOR_API_URL=https://api2.timedoctor.com/api/1.0
-TIMEDOCTOR_EMAIL=your-email@example.com
-TIMEDOCTOR_PASSWORD=your-password
-TIMEDOCTOR_COMPANY_ID=your-company-id
+### Basic Usage
 
-# Optional: Default permissions
-TIMEDOCTOR_DEFAULT_PERMISSIONS=read
-```
-
----
-
-## 👥 **Users API - Full Time Doctor Compatibility**
-
-### 🎯 **All Time Doctor Query Parameters Supported**
-
-**Complete parameter list:**
-```
-company, user, manager, tag, self, detail, task-project-names, 
-no-tag, include-archived-users, deleted, page, limit, sort,
-filter[id], filter[email], filter[name], filter[keywords], 
-filter[role], filter[showOnReports], filter[payrollAccess],
-filter[screenshots], filter[videos], filter[created],
-filter[hostName], filter[os], filter[hiredAt], filter[lastTrack],
-filter[lastActiveTrack], filter[clientVersion], filter[ip]
-... and 25+ more filters
-```
-
-**Example Time Doctor API Call:**
-```bash
-curl -H "Authorization: YOUR_TIMEDOCTOR_TOKEN" \
-  "https://api2.timedoctor.com/api/1.0/users?company=your-company&detail=full&task-project-names=true&filter[role]=admin&filter[showOnReports]=true&page=1&limit=10&sort=email"
-```
-
----
-
-## 🧪 **Testing Your Time Doctor Integration**
-
-### 🚀 **Automated Testing**
-```bash
-# Test all Time Doctor endpoints
-npm run test:timedoctor
-
-# Test users endpoint specifically
-npm run test:users
-
-# Test authentication flow
-npm run test:auth
-```
-
-### 📋 **Manual Testing**
-```bash
-# 1. Configure credentials
-cp .env.example .env
-# Edit with your Time Doctor credentials
-
-# 2. Test login (see auto-logged token + users)
-curl -X POST https://api2.timedoctor.com/api/1.0/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "your-email@example.com",
-    "password": "your-password"
-  }'
-
-# 3. Test users API (use token from response)
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-     "https://api2.timedoctor.com/api/1.0/users"
-
-# 4. Test with advanced filters
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-     "https://api2.timedoctor.com/api/1.0/users?filter[role]=admin&detail=full"
-```
-
----
-
-## 📚 **Complete Documentation**
-
-- **[📖 Complete API Testing Guide](API-TESTING-GUIDE.md)** (22KB) - Detailed Time Doctor API testing
-- **[⚡ Quick API Reference](API-QUICK-REFERENCE.md)** (6KB) - Time Doctor endpoints cheat sheet
-- **[📋 Changelog](CHANGELOG.md)** - Latest updates and features
-
----
-
-## 🛠️ **Time Doctor Client Features**
-
-### ⚡ **Easy Integration**
-- **Direct Time Doctor Connection** - No local setup required
-- **Auto-Token Management** - Handles authentication automatically
-- **Smart Error Handling** - Comprehensive Time Doctor API error handling
-- **Rate Limit Awareness** - Respects Time Doctor's API limits
-
-### 🎯 **Production Ready Client**
-- **JWT Token Handling** - Automatic refresh and management
-- **Comprehensive Validation** - Input validation for all endpoints
-- **Error Recovery** - Retry logic and failover handling
-- **Logging & Monitoring** - Detailed API interaction logs
-
-### 🔧 **Environment Configuration**
-```env
-# Time Doctor API Settings
-TIMEDOCTOR_API_URL=https://api2.timedoctor.com/api/1.0
-TIMEDOCTOR_EMAIL=your-email@example.com
-TIMEDOCTOR_PASSWORD=your-password
-
-# Client Settings
-API_TIMEOUT=30000
-MAX_RETRIES=3
-LOG_LEVEL=info
-```
-
----
-
-## 📊 **Time Doctor API Response Formats**
-
-### ✅ **Successful User Query Response**
-```json
-{
-  "data": [
-    {
-      "id": "12345",
-      "email": "user@company.com", 
-      "first_name": "John",
-      "last_name": "Doe",
-      "role": "manager",
-      "company_id": "67890",
-      "show_on_reports": true,
-      "payroll_access": true,
-      "created_at": "2024-01-15T10:30:00Z"
-    }
-  ],
-  "meta": {
-    "total": 25,
-    "page": 1,
-    "limit": 10,
-    "has_more": true
-  }
-}
-```
-
-### ❌ **Time Doctor API Error Response**
-```json
-{
-  "error": {
-    "code": 401,
-    "message": "Invalid credentials or expired token"
-  }
-}
-```
-
----
-
-## 🔍 **Time Doctor API Client Usage**
-
-### 📦 **Client Library**
 ```javascript
 const TimeDocktorClient = require('./src/clients/TimeDocktorClient');
 
-// Create client
+// Create client instance
 const client = new TimeDocktorClient({
-  baseURL: 'https://api2.timedoctor.com/api/1.0',
-  email: process.env.TIMEDOCTOR_EMAIL,
-  password: process.env.TIMEDOCTOR_PASSWORD
+  baseURL: 'https://api2.timedoctor.com/api/1.0'
 });
 
 // Login
-await client.login();
+await client.simpleLogin('your-email@example.com', 'your-password');
 
-// Get users with Time Doctor parameters
-const users = await client.getUsers({
-  company: 'your-company-id',
-  detail: 'full',
-  'filter[role]': 'admin',
-  page: 1,
-  limit: 20
-});
+// Get worklogs
+const worklogs = await client.getWorklogs();
+console.log(worklogs);
 
-// Get current user
-const me = await client.getMe();
+// Start tracking time
+const worklog = await client.startTracking('project-id', 'task-id', 'Working on feature');
 
-// Get projects
-const projects = await client.getProjects();
-
-// Get time logs
-const worklogs = await client.getWorklogs({
-  from: '2024-01-01',
-  to: '2024-01-31'
-});
+// Stop tracking
+await client.stopTracking(worklog.id);
 ```
 
----
+### With Environment Variables
 
-## 🤝 **Contributing & Support**
+```javascript
+require('dotenv').config();
+const TimeDocktorClient = require('./src/clients/TimeDocktorClient');
+const apiConfig = require('./src/config/apiConfig');
 
-### 🐛 **Found an Issue?**
-- Check the [API Testing Guide](API-TESTING-GUIDE.md)
-- Verify your Time Doctor credentials
-- Check Time Doctor API status
-- Open an [issue](https://github.com/iceman-vici/tracker-app/issues) with details
+const client = new TimeDocktorClient({
+  baseURL: apiConfig.getCurrentEndpoint().baseURL
+});
 
-### 💡 **Want to Contribute?**
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/timedoctor-enhancement`
-3. Test with real Time Doctor API
-4. Commit changes: `git commit -m 'Add Time Doctor feature'`
-5. Push to branch: `git push origin feature/timedoctor-enhancement`
-6. Open a Pull Request
+const credentials = apiConfig.getCredentials();
+await client.simpleLogin(credentials.email, credentials.password);
+```
 
----
+## Testing
 
-## 📚 **Time Doctor Resources**
+### Quick Test
+```bash
+node quick-start.js
+```
 
-- **[Time Doctor API Documentation](https://timedoctor.redoc.ly/)**
-- **[Time Doctor Developer Portal](https://www.timedoctor.com/api)**
-- **[API Rate Limits](https://timedoctor.redoc.ly/#section/Rate-Limiting)**
-- **[Authentication Guide](https://timedoctor.redoc.ly/#tag/Authentication)**
+### Full API Test Suite
+```bash
+node test-api.js
+```
 
----
+### Test Specific Endpoints
+```bash
+node test-users-api.js
+```
 
-## ⚠️ **Important Notes**
+## Project Structure
 
-- **Real API Integration:** This connects to the actual Time Doctor production API
-- **Rate Limits:** Respect Time Doctor's API rate limits (check their documentation)
-- **Credentials Security:** Never commit your actual Time Doctor credentials
-- **Token Expiry:** Handle token refresh for long-running applications
-- **API Changes:** Monitor Time Doctor's changelog for API updates
+```
+tracker-app/
+├── src/
+│   ├── clients/
+│   │   └── TimeDocktorClient.js    # Time Doctor API client
+│   ├── config/
+│   │   ├── apiConfig.js            # API configuration
+│   │   └── database.js             # In-memory database
+│   ├── models/                     # Data models (in-memory)
+│   ├── routes/                     # API routes
+│   ├── middleware/                 # Express middleware
+│   ├── utils/                      # Utility functions
+│   └── server.js                   # Express server (optional)
+├── examples/                        # Usage examples
+├── test-api.js                     # API test script
+├── quick-start.js                  # Quick start script
+├── package.json                    # Dependencies
+└── .env.example                    # Environment variables template
+```
 
----
+## Environment Variables
 
-## 📄 **License**
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `TIMEDOCTOR_EMAIL` | Your Time Doctor email | Yes |
+| `TIMEDOCTOR_PASSWORD` | Your Time Doctor password | Yes |
+| `TIMEDOCTOR_API_KEY` | API key if required | Optional |
+| `PORT` | Server port (default: 3000) | No |
+| `JWT_SECRET` | JWT secret for local sessions | No |
+| `CORS_ORIGIN` | CORS allowed origin | No |
+| `LOG_LEVEL` | Logging level (debug/info/warn/error) | No |
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Rate Limiting
 
----
+Time Doctor API has rate limits:
+- 60 requests per minute
+- 1000 requests per hour
 
-## 🎉 **Ready to Connect to Time Doctor!**
+The client includes retry logic and handles rate limiting automatically.
 
-**You now have a complete Time Doctor API integration with:**
-- ✅ Full authentication with 2FA support
-- ✅ Complete users management with all Time Doctor parameters  
-- ✅ Auto-logging for easy development and testing
-- ✅ Comprehensive test suite for the production API
-- ✅ Professional client library for seamless integration
+## Security
 
-**Start integrating with Time Doctor's API today!** 🚀
+- Never commit your `.env` file with real credentials
+- Use environment variables for sensitive data
+- The application uses JWT for session management
+- All API requests use HTTPS
+- Rate limiting is enabled by default
 
----
+## Troubleshooting
 
-**Version:** 1.0.0  
-**Time Doctor API:** https://api2.timedoctor.com/api/1.0  
-**Last Updated:** September 2, 2025  
-**Repository:** [github.com/iceman-vici/tracker-app](https://github.com/iceman-vici/tracker-app)
+### Connection Issues
+1. Verify your Time Doctor credentials are correct
+2. Check if you have 2FA enabled and use the appropriate login method
+3. Ensure your Time Doctor account has API access
+4. Check your internet connection
+5. Verify the API is accessible from your location
+
+### Authentication Errors
+- For 2FA users: Use `client.loginWith2FA()` or `client.login()` with TOTP code
+- Token expired: Use `client.refreshToken()` or login again
+- Invalid credentials: Double-check email and password
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License.
+
+## Support
+
+For issues or questions:
+1. Check the [API Quick Reference](API-QUICK-REFERENCE.md)
+2. Review the [API Testing Guide](API-TESTING-GUIDE.md)
+3. Open an issue on GitHub
+
+## Disclaimer
+
+This is an unofficial client for the Time Doctor API. It is not affiliated with or endorsed by Time Doctor.

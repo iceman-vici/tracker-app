@@ -1,7 +1,7 @@
 {
   "name": "tracker-app",
   "version": "1.0.0",
-  "description": "Time Tracker API with realtime logs - In-memory database version",
+  "description": "Time Tracker API with Time Doctor Integration - No MongoDB required",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -9,7 +9,8 @@
     "test": "jest",
     "test:api": "node test-api.js",
     "test:users": "node test-users-api.js",
-    "test:all": "npm run test:api && npm run test:users"
+    "test:all": "npm run test:api && npm run test:users",
+    "quick-start": "node quick-start.js"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -39,5 +40,15 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "keywords": [
+    "time-tracker",
+    "time-doctor",
+    "api",
+    "productivity",
+    "time-management",
+    "project-management"
+  ],
+  "author": "",
+  "license": "MIT"
 }
