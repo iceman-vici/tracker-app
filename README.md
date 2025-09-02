@@ -33,6 +33,26 @@ npm install
 
 # Copy environment file
 cp .env.example .env
+
+# Start the server
+npm start
+
+# Server runs at: http://localhost:3000/api/1.0
+```
+
+## 🧪 API Testing Documentation
+
+📚 **Comprehensive Testing Guides Available:**
+
+- **[📖 Complete API Testing Guide](API-TESTING-GUIDE.md)** - Detailed testing instructions with examples, cURL commands, and troubleshooting
+- **[⚡ API Quick Reference](API-QUICK-REFERENCE.md)** - Cheat sheet with all endpoints and quick test commands
+
+### Quick Test
+```bash
+# Run the built-in test suite
+node test-api.js
+
+# Expected: All tests should pass ✅
 ```
 
 ## 🔀 Two Ways to Use This Project
@@ -246,6 +266,8 @@ GET    /api/1.0/reports/timesheet
 GET    /api/1.0/reports/productivity
 ```
 
+**👉 For detailed testing instructions and examples, see [API Testing Guide](API-TESTING-GUIDE.md)**
+
 ## 🔧 Configuration
 
 ### API Configuration (`src/config/apiConfig.js`)
@@ -343,6 +365,8 @@ tracker-app/
 ├── examples/
 │   └── time-doctor-api-example.js # Usage examples
 ├── test-api.js                    # API test script
+├── API-TESTING-GUIDE.md           # Complete testing guide
+├── API-QUICK-REFERENCE.md         # Quick reference cheat sheet
 └── README.md
 ```
 
@@ -368,6 +392,8 @@ node examples/time-doctor-api-example.js
 
 ## 📚 Resources
 
+- **[📖 API Testing Guide](API-TESTING-GUIDE.md)** - Comprehensive testing documentation
+- **[⚡ Quick Reference](API-QUICK-REFERENCE.md)** - API endpoints cheat sheet
 - [Time Doctor API Documentation](https://api2.timedoctor.com/doc)
 - [Time Doctor Official Site](https://www.timedoctor.com)
 - [Socket.io Documentation](https://socket.io/docs/)
