@@ -37,9 +37,10 @@ class TimeDocktorClient {
       }
     };
 
-    if (this.token) {
-      // Time Doctor uses just the token value in Authorization header (no "Bearer" prefix)
-      config.headers['Authorization'] = this.token;
+    // For login endpoint, don't add authorization header
+    if (this.token && endpoint !== '/login') {
+      // Use Bearer token for authenticated requests
+      config.headers['Authorization'] = `Bearer ${this.token}`;
     }
 
     if (data) {
@@ -51,8 +52,8 @@ class TimeDocktorClient {
     }
 
     this.log(`${method} ${url}`, params || data || '');
-    if (this.token) {
-      this.log('Using token:', this.token.substring(0, 20) + '...');
+    if (this.token && endpoint !== '/login') {
+      this.log('Using Bearer token:', `Bearer ${this.token.substring(0, 20)}...`);
     }
 
     try {
@@ -88,6 +89,9 @@ class TimeDocktorClient {
     // Only add totpCode if it's provided and not empty
     if (totpCode && totpCode !== '') {
       loginData.totpCode = totpCode;
+    } else {
+      // Time Doctor API might expect this field even if empty
+      loginData.totpCode = '';
     }
     
     // Add permissions if specified
@@ -102,21 +106,27 @@ class TimeDocktorClient {
     // Debug: Log the entire response structure
     this.log('Login response structure:', JSON.stringify(response, null, 2));
     
-    // Try different possible token locations in the response
+    // Extract token from the response
     let token = null;
+    let tokenData = response;
     
-    // Check for token in various possible locations
-    if (response.data && response.data.token) {
-      token = response.data.token;
-    } else if (response.token) {
-      token = response.token;
-    } else if (typeof response === 'string') {
+    // Check if response has a data wrapper
+    if (response.data) {
+      tokenData = response.data;
+    }
+    
+    // Try to find the token in various possible locations
+    if (tokenData.token) {
+      token = tokenData.token;
+    } else if (tokenData.access_token) {
+      token = tokenData.access_token;
+    } else if (tokenData.accessToken) {
+      token = tokenData.accessToken;
+    } else if (tokenData.authToken) {
+      token = tokenData.authToken;
+    } else if (typeof tokenData === 'string') {
       // Sometimes the token might be returned as a plain string
-      token = response;
-    } else if (response.access_token) {
-      token = response.access_token;
-    } else if (response.accessToken) {
-      token = response.accessToken;
+      token = tokenData;
     }
     
     if (token) {
@@ -124,34 +134,45 @@ class TimeDocktorClient {
       this.log('Login successful, token saved:', token.substring(0, 20) + '...');
       
       // Store additional info if available
-      if (response.data) {
-        if (response.data.expireAt) {
-          this.tokenExpiry = response.data.expireAt;
-          this.log('Token expires at:', response.data.expireAt);
-        }
-        if (response.data.createdAt) {
-          this.log('Token created at:', response.data.createdAt);
-        }
-        if (response.data.company || response.data.companyId) {
-          this.companyId = response.data.company || response.data.companyId;
-          this.log('Company ID:', this.companyId);
-        }
-        if (response.data.user || response.data.userId) {
-          this.userId = response.data.user || response.data.userId;
-          this.log('User ID:', this.userId);
-        }
+      if (tokenData.expireAt || tokenData.expiresAt) {
+        this.tokenExpiry = tokenData.expireAt || tokenData.expiresAt;
+        this.log('Token expires at:', this.tokenExpiry);
       }
       
-      // Check for company/user info at root level
-      if (response.company || response.companyId) {
-        this.companyId = response.company || response.companyId;
+      if (tokenData.createdAt) {
+        this.log('Token created at:', tokenData.createdAt);
       }
-      if (response.user || response.userId) {
-        this.userId = response.user || response.userId;
+      
+      // Extract company ID from various possible locations
+      if (tokenData.company || tokenData.companyId || tokenData.company_id) {
+        this.companyId = tokenData.company || tokenData.companyId || tokenData.company_id;
+        this.log('Company ID:', this.companyId);
+      }
+      
+      // Extract user ID from various possible locations
+      if (tokenData.user || tokenData.userId || tokenData.user_id) {
+        this.userId = tokenData.user || tokenData.userId || tokenData.user_id;
+        this.log('User ID:', this.userId);
+      }
+      
+      // If there's a user object with more details
+      if (tokenData.user && typeof tokenData.user === 'object') {
+        if (tokenData.user.id) {
+          this.userId = tokenData.user.id;
+        }
+        if (tokenData.user.company_id) {
+          this.companyId = tokenData.user.company_id;
+        }
       }
     } else {
       this.log('Warning: No token found in login response');
-      this.log('Response keys:', Object.keys(response));
+      this.log('Response keys:', Object.keys(tokenData));
+      
+      // If the entire response might be the token
+      if (typeof response === 'string' && response.length > 20) {
+        this.token = response;
+        this.log('Using response as token:', response.substring(0, 20) + '...');
+      }
     }
 
     return response;
@@ -257,15 +278,19 @@ class TimeDocktorClient {
    */
   async getMe() {
     try {
+      // Try the most common endpoints for current user
       return await this.request('GET', '/users/me');
     } catch (error) {
-      // If /users/me doesn't exist, try /me or /user
       try {
         return await this.request('GET', '/me');
       } catch (err) {
         try {
           return await this.request('GET', '/user');
         } catch (e) {
+          // If all fail, try to get user by ID if we have it
+          if (this.userId) {
+            return await this.getUser(this.userId);
+          }
           throw new Error('Current user endpoint not found');
         }
       }
@@ -316,10 +341,15 @@ class TimeDocktorClient {
    * Create project
    */
   async createProject(data) {
-    if (this.companyId && !data.company_id) {
-      data.company_id = this.companyId;
+    const projectData = {
+      ...data
+    };
+    
+    if (this.companyId && !projectData.company) {
+      projectData.company = this.companyId;
     }
-    return this.request('POST', '/projects', data);
+    
+    return this.request('POST', '/projects', projectData);
   }
 
   /**
@@ -364,7 +394,15 @@ class TimeDocktorClient {
    * Create task
    */
   async createTask(data) {
-    return this.request('POST', '/tasks', data);
+    const taskData = {
+      ...data
+    };
+    
+    if (this.companyId && !taskData.company) {
+      taskData.company = this.companyId;
+    }
+    
+    return this.request('POST', '/tasks', taskData);
   }
 
   /**
@@ -417,10 +455,15 @@ class TimeDocktorClient {
    * Create worklog (start time tracking)
    */
   async createWorklog(data) {
-    if (this.companyId && !data.company) {
-      data.company = this.companyId;
+    const worklogData = {
+      ...data
+    };
+    
+    if (this.companyId && !worklogData.company) {
+      worklogData.company = this.companyId;
     }
-    return this.request('POST', '/worklogs', data);
+    
+    return this.request('POST', '/worklogs', worklogData);
   }
 
   /**
@@ -442,8 +485,8 @@ class TimeDocktorClient {
    */
   async startTracking(projectId, taskId, description = '') {
     return this.createWorklog({
-      project_id: projectId,
-      task_id: taskId,
+      project: projectId,
+      task: taskId,
       description,
       start_time: new Date().toISOString()
     });
@@ -564,7 +607,7 @@ class TimeDocktorClient {
   // ==================== Utility Methods ====================
 
   /**
-   * Set authentication token
+   * Set authentication token manually
    */
   setToken(token) {
     this.token = token;
