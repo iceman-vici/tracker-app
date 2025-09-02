@@ -35,8 +35,15 @@ cd tracker-app
 npm install
 ```
 
-### 3. Configure environment
+### 3. Set up environment
 
+#### Option A: Use the setup script (Recommended)
+```bash
+node setup.js
+```
+This will guide you through setting up your Time Doctor credentials.
+
+#### Option B: Manual setup
 Copy the example environment file and add your Time Doctor credentials:
 
 ```bash
@@ -72,6 +79,10 @@ npm start
 ```
 
 The server will start on `http://localhost:3000`
+
+## Dependencies
+
+The `dotenv` package is already included in the dependencies. It will automatically load your `.env` file when the application starts.
 
 ## API Configuration
 
@@ -205,6 +216,7 @@ tracker-app/
 ├── examples/                        # Usage examples
 ├── test-api.js                     # API test script
 ├── quick-start.js                  # Quick start script
+├── setup.js                        # Environment setup script
 ├── package.json                    # Dependencies
 └── .env.example                    # Environment variables template
 ```
@@ -221,6 +233,15 @@ tracker-app/
 | `CORS_ORIGIN` | CORS allowed origin | No |
 | `LOG_LEVEL` | Logging level (debug/info/warn/error) | No |
 
+## Security
+
+- **Never commit your `.env` file** - It's already in `.gitignore`
+- Use environment variables for sensitive data
+- The application uses JWT for session management
+- All API requests use HTTPS
+- Rate limiting is enabled by default
+- Credentials are only stored locally in your `.env` file
+
 ## Rate Limiting
 
 Time Doctor API has rate limits:
@@ -228,14 +249,6 @@ Time Doctor API has rate limits:
 - 1000 requests per hour
 
 The client includes retry logic and handles rate limiting automatically.
-
-## Security
-
-- Never commit your `.env` file with real credentials
-- Use environment variables for sensitive data
-- The application uses JWT for session management
-- All API requests use HTTPS
-- Rate limiting is enabled by default
 
 ## Troubleshooting
 
@@ -250,6 +263,11 @@ The client includes retry logic and handles rate limiting automatically.
 - For 2FA users: Use `client.loginWith2FA()` or `client.login()` with TOTP code
 - Token expired: Use `client.refreshToken()` or login again
 - Invalid credentials: Double-check email and password
+
+### Environment Setup
+- Make sure `dotenv` is installed: `npm install`
+- Verify `.env` file exists in the root directory
+- Check that credentials are correctly formatted in `.env`
 
 ## Contributing
 

@@ -10,7 +10,8 @@
     "test:api": "node test-api.js",
     "test:users": "node test-users-api.js",
     "test:all": "npm run test:api && npm run test:users",
-    "quick-start": "node quick-start.js"
+    "quick-start": "node quick-start.js",
+    "setup": "node setup.js"
   },
   "dependencies": {
     "express": "^4.18.2",
