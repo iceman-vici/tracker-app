@@ -11,6 +11,7 @@ class User {
     this.lastName = data.lastName;
     this.role = data.role || 'user';
     this.companyId = data.companyId;
+    this.managerId = data.managerId; // For manager hierarchy
     this.avatar = data.avatar;
     this.phone = data.phone;
     this.timezone = data.timezone || 'UTC';
@@ -27,6 +28,21 @@ class User {
     // Permissions
     this.defaultPermissions = data.defaultPermissions || this.getDefaultPermissionsByRole(data.role);
     this.customPermissions = data.customPermissions || [];
+    
+    // Time Doctor specific fields
+    this.showOnReports = data.showOnReports !== false; // Default true
+    this.invitePending = data.invitePending || false;
+    this.inviteAccepted = data.inviteAccepted !== false; // Default true for existing users
+    this.payrollAccess = data.payrollAccess || false;
+    this.screenshotsEnabled = data.screenshotsEnabled !== false; // Default true
+    this.videosEnabled = data.videosEnabled || false;
+    this.hiredAt = data.hiredAt;
+    this.lastTrack = data.lastTrack; // Last time tracking activity
+    this.lastActiveTrack = data.lastActiveTrack; // Last active tracking
+    this.clientVersion = data.clientVersion; // Time Doctor client version
+    this.lastHostName = data.lastHostName; // Computer hostname
+    this.lastOS = data.lastOS; // Operating system
+    this.tags = data.tags || []; // User tags for organization
     
     // Account settings
     this.settings = data.settings || {
@@ -50,6 +66,16 @@ class User {
         sessionTimeout: 24, // hours
         forceLogoutInactive: false,
         allowMultipleSessions: true
+      },
+      tracking: {
+        autoStart: false,
+        idleTimeout: 300, // seconds
+        screenshotFrequency: 3, // minutes
+        blurScreenshots: false,
+        trackKeystrokes: true,
+        trackMouseClicks: true,
+        trackApplications: true,
+        trackWebsites: true
       }
     };
     
@@ -63,6 +89,23 @@ class User {
     this.lockReason = data.lockReason;
     this.failedLoginAttempts = data.failedLoginAttempts || 0;
     this.lastFailedLogin = data.lastFailedLogin;
+    this.deleted = data.deleted || false;
+    this.deletedAt = data.deletedAt;
+    
+    // Employment info
+    this.employeeId = data.employeeId;
+    this.department = data.department;
+    this.jobTitle = data.jobTitle;
+    this.hourlyRate = data.hourlyRate;
+    this.currency = data.currency || 'USD';
+    this.workHoursPerDay = data.workHoursPerDay || 8;
+    this.workDaysPerWeek = data.workDaysPerWeek || 5;
+    
+    // Productivity tracking
+    this.productivityGoal = data.productivityGoal || 80; // Percentage
+    this.billableHours = data.billableHours || 0;
+    this.totalHoursWorked = data.totalHoursWorked || 0;
+    this.averageProductivity = data.averageProductivity || 0;
     
     // Timestamps
     this.createdAt = data.createdAt || new Date();
@@ -107,6 +150,8 @@ class User {
       user = db.users.find(u => u.username === query.username);
     } else if (query.verificationToken) {
       user = db.users.find(u => u.verificationToken === query.verificationToken);
+    } else if (query.employeeId) {
+      user = db.users.find(u => u.employeeId === query.employeeId);
     } else if (query.$or) {
       // Handle $or queries
       user = db.users.find(u => {
@@ -121,18 +166,40 @@ class User {
   }
 
   // Find all users with pagination and filtering
-  static async find(query = {}, options = {}) {
+  static async find(query = {}, projection = null, options = {}) {
     let users = [...db.users];
     
     // Apply filters
+    if (query._id) {
+      if (typeof query._id === 'string') {
+        users = users.filter(u => u._id === query._id);
+      } else if (query._id.$ne) {
+        users = users.filter(u => u._id !== query._id.$ne);
+      }
+    }
+    
     if (query.companyId) {
       users = users.filter(u => u.companyId === query.companyId);
+    }
+    if (query.managerId) {
+      users = users.filter(u => u.managerId === query.managerId);
     }
     if (query.role) {
       users = users.filter(u => u.role === query.role);
     }
     if (query.status) {
-      users = users.filter(u => u.status === query.status);
+      if (typeof query.status === 'string') {
+        users = users.filter(u => u.status === query.status);
+      } else if (query.status.$ne) {
+        users = users.filter(u => u.status !== query.status.$ne);
+      }
+    }
+    if (query.deleted) {
+      if (typeof query.deleted === 'boolean') {
+        users = users.filter(u => u.deleted === query.deleted);
+      } else if (query.deleted.$ne) {
+        users = users.filter(u => u.deleted !== query.deleted.$ne);
+      }
     }
     if (query.twoFactorEnabled !== undefined) {
       users = users.filter(u => u.twoFactorEnabled === query.twoFactorEnabled);
@@ -140,17 +207,71 @@ class User {
     if (query.emailVerified !== undefined) {
       users = users.filter(u => u.emailVerified === query.emailVerified);
     }
+    if (query.showOnReports !== undefined) {
+      users = users.filter(u => u.showOnReports === query.showOnReports);
+    }
+    if (query.payrollAccess !== undefined) {
+      users = users.filter(u => u.payrollAccess === query.payrollAccess);
+    }
+    if (query.invitePending !== undefined) {
+      users = users.filter(u => u.invitePending === query.invitePending);
+    }
+    
+    // Handle date filters
+    if (query.createdAt) {
+      if (query.createdAt.$gte) {
+        users = users.filter(u => new Date(u.createdAt) >= new Date(query.createdAt.$gte));
+      }
+      if (query.createdAt.$lte) {
+        users = users.filter(u => new Date(u.createdAt) <= new Date(query.createdAt.$lte));
+      }
+    }
+    if (query.hiredAt) {
+      if (query.hiredAt.$gte) {
+        users = users.filter(u => u.hiredAt && new Date(u.hiredAt) >= new Date(query.hiredAt.$gte));
+      }
+    }
+    
+    // Handle text search queries
+    if (query.$or) {
+      users = users.filter(u => {
+        return query.$or.some(condition => {
+          for (const [field, value] of Object.entries(condition)) {
+            if (typeof value === 'object' && value.$regex) {
+              const regex = new RegExp(value.$regex, value.$options || '');
+              return regex.test(u[field] || '');
+            }
+            if (u[field] === value) return true;
+          }
+          return false;
+        });
+      });
+    }
+    
+    // Handle complex queries
+    if (query.email && typeof query.email === 'object' && query.email.$regex) {
+      const regex = new RegExp(query.email.$regex, query.email.$options || '');
+      users = users.filter(u => regex.test(u.email || ''));
+    }
     
     // Apply sorting
     if (options.sort) {
-      const sortField = Object.keys(options.sort)[0];
-      const sortOrder = options.sort[sortField];
+      const sortEntries = Object.entries(options.sort);
       users.sort((a, b) => {
-        if (sortOrder === 1) {
-          return a[sortField] > b[sortField] ? 1 : -1;
-        } else {
-          return a[sortField] < b[sortField] ? 1 : -1;
+        for (const [field, order] of sortEntries) {
+          let aVal = a[field];
+          let bVal = b[field];
+          
+          // Handle nested fields like firstName, lastName
+          if (field === 'firstName' || field === 'lastName') {
+            aVal = a[field] || '';
+            bVal = b[field] || '';
+          }
+          
+          if (aVal < bVal) return order === 1 ? -1 : 1;
+          if (aVal > bVal) return order === 1 ? 1 : -1;
         }
+        return 0;
       });
     }
     
@@ -194,6 +315,7 @@ class User {
   static async countDocuments(query = {}) {
     let users = [...db.users];
     
+    // Apply same filters as find method
     if (query.companyId) {
       users = users.filter(u => u.companyId === query.companyId);
     }
@@ -201,7 +323,34 @@ class User {
       users = users.filter(u => u.role === query.role);
     }
     if (query.status) {
-      users = users.filter(u => u.status === query.status);
+      if (typeof query.status === 'string') {
+        users = users.filter(u => u.status === query.status);
+      } else if (query.status.$ne) {
+        users = users.filter(u => u.status !== query.status.$ne);
+      }
+    }
+    if (query.deleted) {
+      if (typeof query.deleted === 'boolean') {
+        users = users.filter(u => u.deleted === query.deleted);
+      } else if (query.deleted.$ne) {
+        users = users.filter(u => u.deleted !== query.deleted.$ne);
+      }
+    }
+    
+    // Handle $or queries for counting
+    if (query.$or) {
+      users = users.filter(u => {
+        return query.$or.some(condition => {
+          for (const [field, value] of Object.entries(condition)) {
+            if (typeof value === 'object' && value.$regex) {
+              const regex = new RegExp(value.$regex, value.$options || '');
+              return regex.test(u[field] || '');
+            }
+            if (u[field] === value) return true;
+          }
+          return false;
+        });
+      });
     }
     
     return users.length;
@@ -247,43 +396,9 @@ class User {
     return users;
   }
 
-  // Select specific fields (simulated)
-  select(fields) {
-    if (typeof fields === 'string') {
-      const fieldsArray = fields.split(' ');
-      const result = {};
-      
-      for (const field of fieldsArray) {
-        if (field.startsWith('-')) {
-          // Exclude field
-          const fieldName = field.substring(1);
-          if (fieldName !== 'password' || !field.includes('-password')) {
-            result[fieldName] = this[fieldName];
-          }
-        } else {
-          // Include field
-          result[field] = this[field];
-        }
-      }
-      
-      return result;
-    }
-    
-    if (fields.includes('-password')) {
-      delete this.password;
-    }
-    return this;
-  }
-
-  // Populate references (simulated)
-  populate(field) {
-    // In a real implementation, this would fetch related data
-    return this;
-  }
-
   // Virtual property for full name
   get fullName() {
-    return `${this.firstName} ${this.lastName}`.trim();
+    return `${this.firstName || ''} ${this.lastName || ''}`.trim();
   }
 
   // Method to check if user has specific permission
@@ -329,79 +444,60 @@ class User {
     return actionPermissions.includes('*') || actionPermissions.includes(resource);
   }
 
-  // Method to lock user account
-  async lockAccount(reason) {
-    this.isLocked = true;
-    this.lockReason = reason;
-    this.status = 'locked';
-    return await this.save();
-  }
-
-  // Method to unlock user account
-  async unlockAccount() {
-    this.isLocked = false;
-    this.lockReason = null;
-    this.status = 'active';
-    this.failedLoginAttempts = 0;
-    this.lastFailedLogin = null;
-    return await this.save();
-  }
-
-  // Method to increment failed login attempts
-  async incrementFailedLogin() {
-    this.failedLoginAttempts = (this.failedLoginAttempts || 0) + 1;
-    this.lastFailedLogin = new Date();
-    
-    // Lock account after 5 failed attempts
-    if (this.failedLoginAttempts >= 5) {
-      await this.lockAccount('Too many failed login attempts');
-    } else {
-      await this.save();
-    }
-    
-    return this;
-  }
-
-  // Method to reset failed login attempts
-  async resetFailedLoginAttempts() {
-    this.failedLoginAttempts = 0;
-    this.lastFailedLogin = null;
-    return await this.save();
-  }
-
-  // Method to enable 2FA
-  async enable2FA(secret) {
-    this.twoFactorEnabled = true;
-    this.totpSecret = secret;
-    return await this.save();
-  }
-
-  // Method to disable 2FA
-  async disable2FA() {
-    this.twoFactorEnabled = false;
-    this.totpSecret = null;
-    this.backupCodes = [];
-    return await this.save();
-  }
-
-  // Method to generate backup codes
-  generateBackupCodes() {
-    const codes = [];
-    for (let i = 0; i < 10; i++) {
-      codes.push(Math.random().toString(36).substring(2, 8).toUpperCase());
-    }
-    this.backupCodes = codes;
-    return codes;
-  }
-
-  // Method to use backup code
-  useBackupCode(code) {
-    const index = this.backupCodes.indexOf(code);
-    if (index > -1) {
-      this.backupCodes.splice(index, 1);
-      return true;
-    }
-    return false;
+  // Get safe user data (without sensitive information)
+  getSafeData() {
+    return {
+      id: this._id,
+      email: this.email,
+      username: this.username,
+      first_name: this.firstName,
+      last_name: this.lastName,
+      full_name: this.fullName,
+      role: this.role,
+      company_id: this.companyId,
+      manager_id: this.managerId,
+      status: this.status,
+      timezone: this.timezone,
+      avatar: this.avatar,
+      phone: this.phone,
+      lastLogin: this.lastLogin,
+      twoFactorEnabled: this.twoFactorEnabled,
+      emailVerified: this.emailVerified,
+      permissions: this.defaultPermissions,
+      
+      // Time Doctor specific fields
+      show_on_reports: this.showOnReports,
+      invite_pending: this.invitePending,
+      invite_accepted: this.inviteAccepted,
+      payroll_access: this.payrollAccess,
+      screenshots_enabled: this.screenshotsEnabled,
+      videos_enabled: this.videosEnabled,
+      hired_at: this.hiredAt,
+      last_track: this.lastTrack,
+      last_active_track: this.lastActiveTrack,
+      client_version: this.clientVersion,
+      host_name: this.lastHostName,
+      os: this.lastOS,
+      tags: this.tags,
+      tag_count: (this.tags || []).length,
+      
+      // Employment info
+      employee_id: this.employeeId,
+      department: this.department,
+      job_title: this.jobTitle,
+      hourly_rate: this.hourlyRate,
+      currency: this.currency,
+      work_hours_per_day: this.workHoursPerDay,
+      
+      // Productivity
+      productivity_goal: this.productivityGoal,
+      average_productivity: this.averageProductivity,
+      total_hours_worked: this.totalHoursWorked,
+      billable_hours: this.billableHours,
+      
+      created_at: this.createdAt,
+      updated_at: this.updatedAt
+    };
   }
 
   // Convert to JSON (for API responses)
@@ -412,28 +508,6 @@ class User {
     delete user.verificationToken;
     delete user.backupCodes;
     return user;
-  }
-
-  // Get safe user data (without sensitive information)
-  getSafeData() {
-    return {
-      id: this._id,
-      email: this.email,
-      username: this.username,
-      first_name: this.firstName,
-      last_name: this.lastName,
-      role: this.role,
-      company_id: this.companyId,
-      status: this.status,
-      timezone: this.timezone,
-      avatar: this.avatar,
-      lastLogin: this.lastLogin,
-      twoFactorEnabled: this.twoFactorEnabled,
-      emailVerified: this.emailVerified,
-      permissions: this.defaultPermissions,
-      created_at: this.createdAt,
-      updated_at: this.updatedAt
-    };
   }
 }
 
