@@ -1,11 +1,9 @@
-# Tracker App API Documentation
+# Time Tracker API - Time Doctor Clone
 
 ## 📋 Overview
-This document provides comprehensive instructions for testing the Tracker App API routes. The API follows RESTful principles and returns JSON responses.
+A complete Time Doctor API clone with time tracking, screenshot capture, activity monitoring, and reporting capabilities. This API follows Time Doctor's API structure and uses an **in-memory database** for easy testing without requiring any database setup.
 
-**Note:** This version uses an **in-memory database** for easy testing without requiring MongoDB installation. Data is stored in memory and will be lost when the server restarts. Perfect for development and testing!
-
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js 18+ installed
@@ -24,475 +22,364 @@ npm install
 npm start
 ```
 
-### Base URL
-```
-http://localhost:3000/api/v1
-```
-
-### Headers
-All requests should include:
-```json
-{
-  "Content-Type": "application/json",
-  "Authorization": "Bearer YOUR_API_TOKEN"
-}
-```
+The API will be available at: `http://localhost:3000/api/1.0`
 
 ## 🔑 Authentication
 
-### Register User
-```http
-POST /api/v1/auth/register
+### Base URL
 ```
-
-**Request Body:**
-```json
-{
-  "username": "testuser",
-  "email": "test@example.com",
-  "password": "securePassword123",
-  "firstName": "Test",
-  "lastName": "User"
-}
-```
-
-**Example Request:**
-```bash
-curl -X POST "http://localhost:3000/api/v1/auth/register" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser",
-    "email": "test@example.com", 
-    "password": "password123",
-    "firstName": "Test",
-    "lastName": "User"
-  }'
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "token": "eyJhbGciOiJIUzI1NiIs...",
-  "user": {
-    "id": "123",
-    "username": "testuser",
-    "email": "test@example.com",
-    "firstName": "Test",
-    "lastName": "User"
-  }
-}
+http://localhost:3000/api/1.0
 ```
 
 ### Login
 ```http
-POST /api/v1/auth/login
+POST /api/1.0/login
 ```
 
-**Request Body:**
+**Request:**
 ```json
 {
-  "email": "test@example.com",
-  "password": "securePassword123"
+  "email": "admin@example.com",
+  "password": "password123"
 }
-```
-
-**Example Request:**
-```bash
-curl -X POST "http://localhost:3000/api/v1/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "password": "password123"
-  }'
 ```
 
 **Response:**
 ```json
 {
-  "success": true,
   "token": "eyJhbGciOiJIUzI1NiIs...",
   "user": {
-    "id": "123",
-    "username": "testuser",
-    "email": "test@example.com",
-    "firstName": "Test",
-    "lastName": "User",
-    "role": "user"
+    "id": "user_id",
+    "email": "admin@example.com",
+    "first_name": "Admin",
+    "last_name": "User",
+    "role": "admin",
+    "company_id": "company_id"
   }
 }
 ```
 
-## 👤 User Endpoints
-
-### Get User Profile
+### Register
 ```http
-GET /api/v1/users/profile
+POST /api/1.0/register
 ```
 
-### Update User Profile
-```http
-PUT /api/v1/users/profile
-```
-
-### Get All Users
-```http
-GET /api/v1/users
-```
-
-## 🏢 Company Endpoints
-
-### Get All Companies
-```http
-GET /api/v1/companies
-```
-
-### Create Company
-```http
-POST /api/v1/companies
-```
-
-**Request Body:**
+**Request:**
 ```json
 {
-  "name": "Acme Corporation",
-  "email": "contact@acme.com",
-  "description": "Leading tech company"
+  "email": "user@example.com",
+  "password": "secure123",
+  "username": "johndoe",
+  "first_name": "John",
+  "last_name": "Doe",
+  "company_id": "optional_company_id"
 }
 ```
 
-## 📁 Project Endpoints
+## 📚 API Endpoints
 
-### Get All Projects
-```http
-GET /api/v1/projects
-```
+### Users
+- `GET /api/1.0/users` - Get all users
+- `GET /api/1.0/users/:id` - Get user by ID
+- `GET /api/1.0/users/profile` - Get current user profile
+- `PUT /api/1.0/users/profile` - Update user profile
+- `DELETE /api/1.0/users/:id` - Delete user
 
-### Create Project
-```http
-POST /api/v1/projects
-```
+### Companies
+- `GET /api/1.0/companies` - Get all companies
+- `GET /api/1.0/companies/:id` - Get company by ID
+- `POST /api/1.0/companies` - Create company
+- `PUT /api/1.0/companies/:id` - Update company
+- `DELETE /api/1.0/companies/:id` - Delete company
 
-**Request Body:**
+### Projects
+- `GET /api/1.0/projects` - Get all projects
+- `GET /api/1.0/projects/:id` - Get project by ID
+- `POST /api/1.0/projects` - Create project
+- `PUT /api/1.0/projects/:id` - Update project
+- `DELETE /api/1.0/projects/:id` - Delete project
+- `GET /api/1.0/projects/:id/tasks` - Get project tasks
+
+### Tasks
+- `GET /api/1.0/tasks` - Get all tasks
+- `GET /api/1.0/tasks/:id` - Get task by ID
+- `POST /api/1.0/tasks` - Create task
+- `PUT /api/1.0/tasks/:id` - Update task
+- `DELETE /api/1.0/tasks/:id` - Delete task
+- `POST /api/1.0/tasks/:id/comments` - Add comment to task
+
+### Worklogs (Time Tracking)
+- `GET /api/1.0/worklogs` - Get worklogs
+- `GET /api/1.0/worklogs/:id` - Get specific worklog
+- `POST /api/1.0/worklogs` - Create worklog entry
+- `PUT /api/1.0/worklogs/:id` - Update worklog
+- `DELETE /api/1.0/worklogs/:id` - Delete worklog
+
+**Query Parameters for GET /api/1.0/worklogs:**
+- `user_id` - Filter by user
+- `company_id` - Filter by company
+- `project_id` - Filter by project
+- `task_id` - Filter by task
+- `from` - Start date (ISO 8601)
+- `to` - End date (ISO 8601)
+
+**Worklog Object:**
 ```json
 {
-  "name": "New Project",
-  "description": "Project description",
-  "startDate": "2025-09-01",
-  "endDate": "2025-12-31",
-  "priority": "high"
+  "id": "worklog_id",
+  "user_id": "user_id",
+  "company_id": "company_id",
+  "project_id": "project_id",
+  "task_id": "task_id",
+  "start_time": "2025-09-01T09:00:00Z",
+  "end_time": "2025-09-01T17:00:00Z",
+  "duration": 28800,
+  "description": "Working on API implementation",
+  "is_manual": false,
+  "keyboard_strokes": 5420,
+  "mouse_clicks": 1230,
+  "active_window": "VS Code"
 }
 ```
 
-### Get Project Tasks
-```http
-GET /api/v1/projects/:id/tasks
-```
+### Activity
+- `GET /api/1.0/activity` - Get activity logs
+- `POST /api/1.0/activity/log` - Log activity
 
-## ✅ Task Endpoints
+### Screenshots
+- `GET /api/1.0/screenshots` - Get screenshots
+- `POST /api/1.0/screenshots/upload` - Upload screenshot
 
-### Get All Tasks
-```http
-GET /api/v1/tasks
-```
+### Reports
+- `GET /api/1.0/reports/summary` - Get summary report
+- `GET /api/1.0/reports/timesheet` - Get timesheet report
 
-**Query Parameters:**
-- `projectId`: Filter by project
-- `status`: Filter by status (todo, in_progress, completed)
-- `priority`: Filter by priority (low, medium, high, urgent)
-- `assignedTo`: Filter by assigned user
-- `page`: Page number (default: 1)
-- `limit`: Items per page (default: 10)
-
-### Create Task
-```http
-POST /api/v1/tasks
-```
-
-**Request Body:**
-```json
-{
-  "title": "New Task",
-  "description": "Task description",
-  "projectId": "project_id_here",
-  "priority": "medium",
-  "dueDate": "2025-09-15"
-}
-```
-
-### Update Task
-```http
-PUT /api/v1/tasks/:id
-```
-
-### Delete Task
-```http
-DELETE /api/v1/tasks/:id
-```
-
-### Add Comment to Task
-```http
-POST /api/v1/tasks/:id/comments
-```
-
-**Request Body:**
-```json
-{
-  "text": "This is a comment"
-}
-```
-
-## ⏱️ Time Tracking Endpoints
-
-### Start Time Tracking
-```http
-POST /api/v1/time-tracking/start
-```
-
-### Stop Time Tracking
-```http
-POST /api/v1/time-tracking/stop
-```
-
-### Get Time Entries
-```http
-GET /api/v1/time-tracking/entries
-```
-
-## 📊 Report Endpoints
-
-### Get Summary Report
-```http
-GET /api/v1/reports/summary
-```
-
-### Get Timesheet Report
-```http
-GET /api/v1/reports/timesheet
-```
+### Settings
+- `GET /api/1.0/settings` - Get user settings
+- `PUT /api/1.0/settings` - Update settings
 
 ## 🧪 Testing Examples
 
-### Complete Test Flow
+### Complete Workflow Example
 
 ```bash
-# 1. Register a new user
-curl -X POST "http://localhost:3000/api/v1/auth/register" \
+# 1. Login (or register first if new user)
+curl -X POST http://localhost:3000/api/1.0/login \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "john_doe",
-    "email": "john@example.com",
-    "password": "secure123",
-    "firstName": "John",
-    "lastName": "Doe"
+    "email": "admin@example.com",
+    "password": "password123"
   }'
 
-# Save the token from the response
+# Save the token
 TOKEN="your_token_here"
 
-# 2. Create a company
-curl -X POST "http://localhost:3000/api/v1/companies" \
-  -H "Content-Type: application/json" \
+# 2. Create a project
+curl -X POST http://localhost:3000/api/1.0/projects \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "name": "My Company",
-    "email": "info@mycompany.com"
-  }'
-
-# 3. Create a project
-curl -X POST "http://localhost:3000/api/v1/projects" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
   -d '{
-    "name": "Website Redesign",
-    "description": "Redesign company website",
+    "name": "Website Development",
+    "description": "New company website",
     "startDate": "2025-09-01",
     "endDate": "2025-12-31"
   }'
 
-# 4. Create a task
-curl -X POST "http://localhost:3000/api/v1/tasks" \
-  -H "Content-Type: application/json" \
+# 3. Create a task
+curl -X POST http://localhost:3000/api/1.0/tasks \
   -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
   -d '{
     "title": "Design Homepage",
-    "description": "Create new homepage design",
     "projectId": "project_id_here",
     "priority": "high"
   }'
 
-# 5. Get all tasks
-curl -X GET "http://localhost:3000/api/v1/tasks" \
+# 4. Start tracking time (create worklog)
+curl -X POST http://localhost:3000/api/1.0/worklogs \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": "project_id",
+    "task_id": "task_id",
+    "description": "Working on homepage design",
+    "start_time": "2025-09-01T09:00:00Z"
+  }'
+
+# 5. Get worklogs for today
+curl -X GET "http://localhost:3000/api/1.0/worklogs?from=2025-09-01&to=2025-09-02" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-### Using JavaScript (Node.js)
+### JavaScript SDK Example
+
 ```javascript
-const axios = require('axios');
+class TimeTrackerAPI {
+  constructor(baseURL = 'http://localhost:3000/api/1.0') {
+    this.baseURL = baseURL;
+    this.token = null;
+  }
 
-const API_URL = 'http://localhost:3000/api/v1';
-let token = '';
+  async login(email, password) {
+    const response = await fetch(`${this.baseURL}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await response.json();
+    this.token = data.token;
+    return data;
+  }
 
-// Register user
-async function register() {
-  const response = await axios.post(`${API_URL}/auth/register`, {
-    username: 'testuser',
-    email: 'test@example.com',
-    password: 'password123',
-    firstName: 'Test',
-    lastName: 'User'
-  });
-  
-  token = response.data.token;
-  console.log('Registered:', response.data);
-}
-
-// Create a task
-async function createTask() {
-  const response = await axios.post(
-    `${API_URL}/tasks`,
-    {
-      title: 'New Task',
-      description: 'Task description',
-      projectId: 'some_project_id'
-    },
-    {
+  async startWorklog(projectId, taskId, description) {
+    const response = await fetch(`${this.baseURL}/worklogs`, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${this.token}`,
         'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        project_id: projectId,
+        task_id: taskId,
+        description: description,
+        start_time: new Date().toISOString()
+      })
+    });
+    return response.json();
+  }
+
+  async getWorklogs(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const response = await fetch(`${this.baseURL}/worklogs?${queryString}`, {
+      headers: {
+        'Authorization': `Bearer ${this.token}`
       }
-    }
-  );
-  
-  console.log('Task created:', response.data);
-}
-
-// Run tests
-async function runTests() {
-  await register();
-  await createTask();
-}
-
-runTests();
-```
-
-## 🔍 Error Handling
-
-### Common Error Responses
-
-**400 Bad Request:**
-```json
-{
-  "success": false,
-  "error": "Invalid request parameters",
-  "details": {
-    "field": "name",
-    "message": "Name is required"
+    });
+    return response.json();
   }
 }
-```
 
-**401 Unauthorized:**
-```json
-{
-  "success": false,
-  "error": "Authentication required",
-  "message": "Please provide a valid token"
-}
-```
-
-**404 Not Found:**
-```json
-{
-  "success": false,
-  "error": "Resource not found",
-  "message": "Task with ID 999 not found"
-}
-```
-
-## 📝 Testing Checklist
-
-### Basic Functionality
-- [ ] Test user registration
-- [ ] Test user login
-- [ ] Test token authentication
-- [ ] Test creating a company
-- [ ] Test creating a project
-- [ ] Test creating tasks
-- [ ] Test retrieving all tasks
-- [ ] Test updating a task
-- [ ] Test deleting a task
-
-### API Features
-- [ ] Test pagination
-- [ ] Test filtering
-- [ ] Test sorting
-- [ ] Test real-time updates (Socket.io)
-- [ ] Test file uploads
-- [ ] Test rate limiting
-
-## 🚦 Rate Limiting
-
-API endpoints are rate-limited to prevent abuse:
-- **Default:** 100 requests per 15 minutes per IP
-
-Rate limit headers:
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1693526400
+// Usage
+const api = new TimeTrackerAPI();
+await api.login('admin@example.com', 'password123');
+await api.startWorklog('project_123', 'task_456', 'Working on API');
+const worklogs = await api.getWorklogs({ from: '2025-09-01' });
 ```
 
 ## ⚡ Real-time Features
 
-The API supports real-time updates via Socket.io. Connect to receive live updates:
+Connect via Socket.io for real-time updates:
 
 ```javascript
 const io = require('socket.io-client');
 const socket = io('http://localhost:3000', {
-  auth: {
-    token: 'YOUR_TOKEN'
-  }
+  auth: { token: 'YOUR_TOKEN' }
 });
 
 socket.on('connect', () => {
   console.log('Connected to real-time updates');
 });
 
-socket.on('task:updated', (data) => {
-  console.log('Task updated:', data);
+// Listen for time tracking events
+socket.on('user:status:update', (data) => {
+  console.log('User status changed:', data);
+});
+
+// Send time tracking updates
+socket.emit('time:start', {
+  taskId: 'task_123',
+  projectId: 'project_456'
 });
 ```
 
+## 🔒 Authentication
+
+All API endpoints (except `/login` and `/register`) require authentication via Bearer token:
+
+```
+Authorization: Bearer YOUR_TOKEN_HERE
+```
+
+## 📊 Response Format
+
+### Success Response
+```json
+{
+  "data": { ... },
+  "message": "Success message"
+}
+```
+
+### Error Response
+```json
+{
+  "error": {
+    "code": 400,
+    "message": "Error message",
+    "details": [ ... ]
+  }
+}
+```
+
+## 🚦 Rate Limiting
+
+- Default: 100 requests per 15 minutes per IP
+- Rate limit headers are included in responses:
+  - `X-RateLimit-Limit`
+  - `X-RateLimit-Remaining`
+  - `X-RateLimit-Reset`
+
 ## 🔧 Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file:
 
 ```env
 NODE_ENV=development
 PORT=3000
 JWT_SECRET=your-secret-key-change-this
-CORS_ORIGIN=http://localhost:3000
+JWT_EXPIRE=7d
+CORS_ORIGIN=*
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
 ```
 
-## 📚 Additional Resources
+## 📝 Default Test Account
 
-- [REST API Best Practices](https://restfulapi.net/)
-- [HTTP Status Codes](https://httpstatuses.com/)
+The system creates a default admin account:
+- **Email:** admin@example.com
+- **Password:** password123
+
+## 💾 Data Storage
+
+This version uses an **in-memory database** for simplicity:
+- No database setup required
+- Data is stored in memory
+- Data resets when server restarts
+- Perfect for development and testing
+
+To use a persistent database, you can easily modify the code to use MongoDB, PostgreSQL, or any other database.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📚 Resources
+
+- [Time Doctor API Documentation](https://api2.timedoctor.com/api/1.0)
 - [Socket.io Documentation](https://socket.io/docs/)
 - [JWT Documentation](https://jwt.io/)
+- [Express.js Guide](https://expressjs.com/)
 
-## 🤝 Support
+## 📄 License
 
-For questions or issues:
-1. Check the error message and status code
-2. Verify your authentication token
-3. Ensure correct request format
-4. Review this documentation
-5. Create an issue on GitHub
+This project is licensed under the MIT License.
 
 ---
 
-**Version:** 1.0.0 (In-Memory Database Edition)  
-**Last Updated:** September 2025  
-**No MongoDB Required!** 🎉
+**Version:** 1.0.0  
+**API Compatibility:** Time Doctor API v1.0  
+**Last Updated:** September 2025
