@@ -1,13 +1,26 @@
-# Time Tracker API - Time Doctor Clone
+# Time Tracker API - Time Doctor Clone & Client
 
 ## 📋 Overview
-A complete Time Doctor API clone with time tracking, screenshot capture, activity monitoring, and reporting capabilities. This API follows Time Doctor's API structure and uses an **in-memory database** for easy testing without requiring any database setup.
+
+This repository contains:
+1. **Local Time Doctor API Clone** - A complete clone of Time Doctor's API for development and testing
+2. **Time Doctor API Client** - A JavaScript client to connect to the real Time Doctor API at `https://api2.timedoctor.com/api/1.0`
+
+## 🎯 Features
+
+- ✅ **Dual Mode**: Connect to local server OR real Time Doctor API
+- ✅ **Full API Coverage**: All major Time Doctor endpoints supported
+- ✅ **Time Tracking**: Start/stop timers, manage worklogs
+- ✅ **Project Management**: Projects, tasks, and assignments
+- ✅ **Reporting**: Summary, timesheet, and productivity reports
+- ✅ **Real-time Updates**: Socket.io support for live tracking
+- ✅ **No Database Required**: Local server uses in-memory storage
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js 18+ installed
-- No database required! (Uses in-memory storage)
+- Time Doctor account (for production API)
 
 ### Installation
 ```bash
@@ -18,289 +31,252 @@ cd tracker-app
 # Install dependencies
 npm install
 
-# Start the server
+# Copy environment file
+cp .env.example .env
+```
+
+## 🔀 Two Ways to Use This Project
+
+### Option 1: Local Development Server
+
+Start your own Time Doctor API clone locally:
+
+```bash
+# Start the local server
 npm start
+
+# Server runs at: http://localhost:3000/api/1.0
 ```
 
-The API will be available at: `http://localhost:3000/api/1.0`
+### Option 2: Connect to Real Time Doctor API
 
-## 🔑 Authentication
+Use the included client to connect to the production Time Doctor API:
 
-### Base URL
-```
-http://localhost:3000/api/1.0
-```
+```javascript
+const TimeDocktorClient = require('./src/clients/TimeDocktorClient');
 
-### Login
-```http
-POST /api/1.0/login
-```
+const client = new TimeDocktorClient({
+  baseURL: 'https://api2.timedoctor.com/api/1.0',
+  debug: true
+});
 
-**Request:**
-```json
-{
-  "email": "admin@example.com",
-  "password": "password123"
-}
+// Login with your Time Doctor credentials
+await client.login('your-email@example.com', 'your-password');
+
+// Start using the API
+const worklogs = await client.getWorklogs();
 ```
 
-**Response:**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIs...",
-  "user": {
-    "id": "user_id",
-    "email": "admin@example.com",
-    "first_name": "Admin",
-    "last_name": "User",
-    "role": "admin",
-    "company_id": "company_id"
-  }
-}
+## 🔐 Time Doctor API Client
+
+### Basic Usage
+
+```javascript
+const TimeDocktorClient = require('./src/clients/TimeDocktorClient');
+
+// Create client instance
+const client = new TimeDocktorClient({
+  baseURL: 'https://api2.timedoctor.com/api/1.0', // Real API
+  // baseURL: 'http://localhost:3000/api/1.0',     // Local API
+  debug: true
+});
+
+// Login
+const loginResponse = await client.login('email@example.com', 'password');
+console.log('Logged in:', loginResponse.user);
+
+// Get projects
+const projects = await client.getProjects();
+
+// Get tasks
+const tasks = await client.getTasks();
+
+// Start time tracking
+const worklog = await client.startTracking('project_id', 'task_id', 'Working on feature');
+
+// Stop time tracking
+await client.stopTracking(worklog.data.id);
+
+// Get worklogs for date range
+const logs = await client.getWorklogs({
+  from: '2025-09-01',
+  to: '2025-09-02'
+});
+
+// Get reports
+const report = await client.getSummaryReport({
+  from: '2025-09-01',
+  to: '2025-09-30'
+});
 ```
 
-### Register
-```http
-POST /api/1.0/register
-```
+### Available Methods
 
-**Request:**
-```json
-{
-  "email": "user@example.com",
-  "password": "secure123",
-  "username": "johndoe",
-  "first_name": "John",
-  "last_name": "Doe",
-  "company_id": "optional_company_id"
-}
-```
+#### Authentication
+- `login(email, password)` - Authenticate with Time Doctor
+- `logout()` - End session
+- `refreshToken(refreshToken)` - Refresh authentication token
 
-## 📚 API Endpoints
+#### Users
+- `getUsers(params)` - Get list of users
+- `getUser(userId)` - Get specific user
+- `getMe()` - Get current user
 
-### Users
-- `GET /api/1.0/users` - Get all users
-- `GET /api/1.0/users/:id` - Get user by ID
-- `GET /api/1.0/users/profile` - Get current user profile
-- `PUT /api/1.0/users/profile` - Update user profile
-- `DELETE /api/1.0/users/:id` - Delete user
+#### Companies
+- `getCompanies(params)` - Get companies
+- `getCompany(companyId)` - Get specific company
 
-### Companies
-- `GET /api/1.0/companies` - Get all companies
-- `GET /api/1.0/companies/:id` - Get company by ID
-- `POST /api/1.0/companies` - Create company
-- `PUT /api/1.0/companies/:id` - Update company
-- `DELETE /api/1.0/companies/:id` - Delete company
+#### Projects
+- `getProjects(params)` - Get projects
+- `getProject(projectId)` - Get specific project
+- `createProject(data)` - Create new project
+- `updateProject(projectId, data)` - Update project
+- `deleteProject(projectId)` - Delete project
 
-### Projects
-- `GET /api/1.0/projects` - Get all projects
-- `GET /api/1.0/projects/:id` - Get project by ID
-- `POST /api/1.0/projects` - Create project
-- `PUT /api/1.0/projects/:id` - Update project
-- `DELETE /api/1.0/projects/:id` - Delete project
-- `GET /api/1.0/projects/:id/tasks` - Get project tasks
+#### Tasks
+- `getTasks(params)` - Get tasks
+- `getTask(taskId)` - Get specific task
+- `createTask(data)` - Create new task
+- `updateTask(taskId, data)` - Update task
+- `deleteTask(taskId)` - Delete task
 
-### Tasks
-- `GET /api/1.0/tasks` - Get all tasks
-- `GET /api/1.0/tasks/:id` - Get task by ID
-- `POST /api/1.0/tasks` - Create task
-- `PUT /api/1.0/tasks/:id` - Update task
-- `DELETE /api/1.0/tasks/:id` - Delete task
-- `POST /api/1.0/tasks/:id/comments` - Add comment to task
+#### Worklogs (Time Tracking)
+- `getWorklogs(params)` - Get time entries
+- `getWorklog(worklogId)` - Get specific worklog
+- `createWorklog(data)` - Create worklog entry
+- `updateWorklog(worklogId, data)` - Update worklog
+- `deleteWorklog(worklogId)` - Delete worklog
+- `startTracking(projectId, taskId, description)` - Start timer
+- `stopTracking(worklogId)` - Stop timer
 
-### Worklogs (Time Tracking)
-- `GET /api/1.0/worklogs` - Get worklogs
-- `GET /api/1.0/worklogs/:id` - Get specific worklog
-- `POST /api/1.0/worklogs` - Create worklog entry
-- `PUT /api/1.0/worklogs/:id` - Update worklog
-- `DELETE /api/1.0/worklogs/:id` - Delete worklog
+#### Activity & Screenshots
+- `getActivity(params)` - Get activity logs
+- `logActivity(data)` - Log activity
+- `getScreenshots(params)` - Get screenshots
+- `uploadScreenshot(data)` - Upload screenshot
 
-**Query Parameters for GET /api/1.0/worklogs:**
-- `user_id` - Filter by user
-- `company_id` - Filter by company
-- `project_id` - Filter by project
-- `task_id` - Filter by task
-- `from` - Start date (ISO 8601)
-- `to` - End date (ISO 8601)
-
-**Worklog Object:**
-```json
-{
-  "id": "worklog_id",
-  "user_id": "user_id",
-  "company_id": "company_id",
-  "project_id": "project_id",
-  "task_id": "task_id",
-  "start_time": "2025-09-01T09:00:00Z",
-  "end_time": "2025-09-01T17:00:00Z",
-  "duration": 28800,
-  "description": "Working on API implementation",
-  "is_manual": false,
-  "keyboard_strokes": 5420,
-  "mouse_clicks": 1230,
-  "active_window": "VS Code"
-}
-```
-
-### Activity
-- `GET /api/1.0/activity` - Get activity logs
-- `POST /api/1.0/activity/log` - Log activity
-
-### Screenshots
-- `GET /api/1.0/screenshots` - Get screenshots
-- `POST /api/1.0/screenshots/upload` - Upload screenshot
-
-### Reports
-- `GET /api/1.0/reports/summary` - Get summary report
-- `GET /api/1.0/reports/timesheet` - Get timesheet report
-
-### Settings
-- `GET /api/1.0/settings` - Get user settings
-- `PUT /api/1.0/settings` - Update settings
+#### Reports
+- `getSummaryReport(params)` - Get summary report
+- `getTimesheetReport(params)` - Get timesheet report
+- `getProductivityReport(params)` - Get productivity report
 
 ## 🧪 Testing Examples
 
-### Complete Workflow Example
+### Run Interactive Examples
 
 ```bash
-# 1. Login (or register first if new user)
-curl -X POST http://localhost:3000/api/1.0/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@example.com",
-    "password": "password123"
-  }'
+# Test with local server
+node examples/time-doctor-api-example.js local
 
-# Save the token
-TOKEN="your_token_here"
+# Test with production API (requires credentials in .env)
+node examples/time-doctor-api-example.js production
 
-# 2. Create a project
-curl -X POST http://localhost:3000/api/1.0/projects \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Website Development",
-    "description": "New company website",
-    "startDate": "2025-09-01",
-    "endDate": "2025-12-31"
-  }'
-
-# 3. Create a task
-curl -X POST http://localhost:3000/api/1.0/tasks \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Design Homepage",
-    "projectId": "project_id_here",
-    "priority": "high"
-  }'
-
-# 4. Start tracking time (create worklog)
-curl -X POST http://localhost:3000/api/1.0/worklogs \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "project_id": "project_id",
-    "task_id": "task_id",
-    "description": "Working on homepage design",
-    "start_time": "2025-09-01T09:00:00Z"
-  }'
-
-# 5. Get worklogs for today
-curl -X GET "http://localhost:3000/api/1.0/worklogs?from=2025-09-01&to=2025-09-02" \
-  -H "Authorization: Bearer $TOKEN"
+# Interactive mode
+node examples/time-doctor-api-example.js local --interactive
 ```
 
-### JavaScript SDK Example
+### Environment Configuration
+
+Edit `.env` file:
+
+```env
+# For local development
+API_ENV=local
+
+# For production Time Doctor API
+API_ENV=production
+TIMEDOCTOR_EMAIL=your-email@example.com
+TIMEDOCTOR_PASSWORD=your-password
+```
+
+### Test Script
+
+```bash
+# Run API tests
+node test-api.js
+```
+
+## 📚 API Endpoints Reference
+
+### Base URLs
+- **Production**: `https://api2.timedoctor.com/api/1.0`
+- **Local Clone**: `http://localhost:3000/api/1.0`
+
+### Authentication
+```http
+POST /api/1.0/login
+POST /api/1.0/register
+POST /api/1.0/logout
+POST /api/1.0/refresh
+```
+
+### Core Endpoints
+```http
+# Users
+GET    /api/1.0/users
+GET    /api/1.0/users/:id
+GET    /api/1.0/users/me
+PUT    /api/1.0/users/:id
+DELETE /api/1.0/users/:id
+
+# Projects
+GET    /api/1.0/projects
+GET    /api/1.0/projects/:id
+POST   /api/1.0/projects
+PUT    /api/1.0/projects/:id
+DELETE /api/1.0/projects/:id
+
+# Tasks
+GET    /api/1.0/tasks
+GET    /api/1.0/tasks/:id
+POST   /api/1.0/tasks
+PUT    /api/1.0/tasks/:id
+DELETE /api/1.0/tasks/:id
+
+# Worklogs (Time Tracking)
+GET    /api/1.0/worklogs
+GET    /api/1.0/worklogs/:id
+POST   /api/1.0/worklogs
+PUT    /api/1.0/worklogs/:id
+DELETE /api/1.0/worklogs/:id
+
+# Reports
+GET    /api/1.0/reports/summary
+GET    /api/1.0/reports/timesheet
+GET    /api/1.0/reports/productivity
+```
+
+## 🔧 Configuration
+
+### API Configuration (`src/config/apiConfig.js`)
 
 ```javascript
-class TimeTrackerAPI {
-  constructor(baseURL = 'http://localhost:3000/api/1.0') {
-    this.baseURL = baseURL;
-    this.token = null;
+const config = {
+  environment: 'local', // or 'production'
+  endpoints: {
+    local: {
+      baseURL: 'http://localhost:3000/api/1.0'
+    },
+    production: {
+      baseURL: 'https://api2.timedoctor.com/api/1.0'
+    }
   }
-
-  async login(email, password) {
-    const response = await fetch(`${this.baseURL}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await response.json();
-    this.token = data.token;
-    return data;
-  }
-
-  async startWorklog(projectId, taskId, description) {
-    const response = await fetch(`${this.baseURL}/worklogs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        project_id: projectId,
-        task_id: taskId,
-        description: description,
-        start_time: new Date().toISOString()
-      })
-    });
-    return response.json();
-  }
-
-  async getWorklogs(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    const response = await fetch(`${this.baseURL}/worklogs?${queryString}`, {
-      headers: {
-        'Authorization': `Bearer ${this.token}`
-      }
-    });
-    return response.json();
-  }
-}
-
-// Usage
-const api = new TimeTrackerAPI();
-await api.login('admin@example.com', 'password123');
-await api.startWorklog('project_123', 'task_456', 'Working on API');
-const worklogs = await api.getWorklogs({ from: '2025-09-01' });
+};
 ```
 
-## ⚡ Real-time Features
-
-Connect via Socket.io for real-time updates:
+### Switch Between Environments
 
 ```javascript
-const io = require('socket.io-client');
-const socket = io('http://localhost:3000', {
-  auth: { token: 'YOUR_TOKEN' }
-});
+const apiConfig = require('./src/config/apiConfig');
 
-socket.on('connect', () => {
-  console.log('Connected to real-time updates');
-});
+// Switch to production
+apiConfig.setEnvironment('production');
 
-// Listen for time tracking events
-socket.on('user:status:update', (data) => {
-  console.log('User status changed:', data);
-});
-
-// Send time tracking updates
-socket.emit('time:start', {
-  taskId: 'task_123',
-  projectId: 'project_456'
-});
+// Switch to local
+apiConfig.setEnvironment('local');
 ```
 
-## 🔒 Authentication
-
-All API endpoints (except `/login` and `/register`) require authentication via Bearer token:
-
-```
-Authorization: Bearer YOUR_TOKEN_HERE
-```
-
-## 📊 Response Format
+## 📊 Response Formats
 
 ### Success Response
 ```json
@@ -321,43 +297,66 @@ Authorization: Bearer YOUR_TOKEN_HERE
 }
 ```
 
-## 🚦 Rate Limiting
+## ⚡ Real-time Features
 
-- Default: 100 requests per 15 minutes per IP
-- Rate limit headers are included in responses:
-  - `X-RateLimit-Limit`
-  - `X-RateLimit-Remaining`
-  - `X-RateLimit-Reset`
+Connect via Socket.io for real-time updates (local server only):
 
-## 🔧 Environment Variables
+```javascript
+const io = require('socket.io-client');
+const socket = io('http://localhost:3000', {
+  auth: { token: 'YOUR_TOKEN' }
+});
 
-Create a `.env` file:
-
-```env
-NODE_ENV=development
-PORT=3000
-JWT_SECRET=your-secret-key-change-this
-JWT_EXPIRE=7d
-CORS_ORIGIN=*
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
+socket.on('user:status:update', (data) => {
+  console.log('User status changed:', data);
+});
 ```
 
-## 📝 Default Test Account
+## 🚦 Rate Limiting
 
-The system creates a default admin account:
+- **Production API**: Check Time Doctor's official limits
+- **Local Server**: 100 requests per 15 minutes (configurable)
+
+## 📝 Default Test Accounts
+
+### Local Server
 - **Email:** admin@example.com
 - **Password:** password123
 
-## 💾 Data Storage
+### Production API
+- Use your actual Time Doctor credentials
 
-This version uses an **in-memory database** for simplicity:
-- No database setup required
-- Data is stored in memory
-- Data resets when server restarts
-- Perfect for development and testing
+## 🛠️ Development
 
-To use a persistent database, you can easily modify the code to use MongoDB, PostgreSQL, or any other database.
+### Project Structure
+```
+tracker-app/
+├── src/
+│   ├── clients/
+│   │   └── TimeDocktorClient.js    # Time Doctor API client
+│   ├── config/
+│   │   ├── apiConfig.js           # API configuration
+│   │   └── database.js            # In-memory database
+│   ├── routes/                    # API route handlers
+│   ├── models/                    # Data models
+│   └── server.js                  # Express server
+├── examples/
+│   └── time-doctor-api-example.js # Usage examples
+├── test-api.js                    # API test script
+└── README.md
+```
+
+### Running Tests
+```bash
+# Test local server
+npm test
+
+# Test API endpoints
+node test-api.js
+
+# Test Time Doctor client
+node examples/time-doctor-api-example.js
+```
 
 ## 🤝 Contributing
 
@@ -369,10 +368,17 @@ To use a persistent database, you can easily modify the code to use MongoDB, Pos
 
 ## 📚 Resources
 
-- [Time Doctor API Documentation](https://api2.timedoctor.com/api/1.0)
+- [Time Doctor API Documentation](https://api2.timedoctor.com/doc)
+- [Time Doctor Official Site](https://www.timedoctor.com)
 - [Socket.io Documentation](https://socket.io/docs/)
-- [JWT Documentation](https://jwt.io/)
 - [Express.js Guide](https://expressjs.com/)
+
+## ⚠️ Important Notes
+
+1. **Never commit real credentials** - Always use environment variables
+2. **Rate Limits** - Be aware of Time Doctor's API rate limits
+3. **Data Privacy** - Handle user data responsibly
+4. **API Changes** - Time Doctor may update their API
 
 ## 📄 License
 
@@ -382,4 +388,5 @@ This project is licensed under the MIT License.
 
 **Version:** 1.0.0  
 **API Compatibility:** Time Doctor API v1.0  
-**Last Updated:** September 2025
+**Last Updated:** September 2025  
+**Repository:** [github.com/iceman-vici/tracker-app](https://github.com/iceman-vici/tracker-app)
