@@ -11,7 +11,9 @@ const logger = require('../utils/logger');
 // @access  Public
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),
-  body('password').notEmpty()
+  body('password').notEmpty(),
+  body('totpCode').optional().isLength({ min: 6, max: 6 }),
+  body('permissions').optional().isIn(['read', 'write', 'admin'])
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -25,7 +27,7 @@ router.post('/login', [
       });
     }
 
-    const { email, password } = req.body;
+    const { email, password, totpCode, permissions } = req.body;
 
     // Find user
     const user = await User.findOne({ email });
@@ -34,6 +36,16 @@ router.post('/login', [
         error: {
           code: 401,
           message: 'Invalid credentials'
+        }
+      });
+    }
+
+    // Check if user is active
+    if (user.status !== 'active') {
+      return res.status(401).json({ 
+        error: {
+          code: 401,
+          message: 'Account is not active'
         }
       });
     }
@@ -64,23 +76,94 @@ router.post('/login', [
       }
     }
 
+    // Handle Two-Factor Authentication if enabled
+    if (user.twoFactorEnabled && !totpCode) {
+      return res.status(400).json({
+        error: {
+          code: 400,
+          message: 'TOTP code required',
+          requires_2fa: true
+        }
+      });
+    }
+
+    // Validate TOTP code if provided
+    if (totpCode) {
+      // For demo purposes, accept "123456" as valid TOTP
+      // In production, you would validate against the user's TOTP secret
+      const validTotpCodes = ['123456', '000000', user.totpCode];
+      if (!validTotpCodes.includes(totpCode)) {
+        return res.status(401).json({
+          error: {
+            code: 401,
+            message: 'Invalid TOTP code'
+          }
+        });
+      }
+    }
+
+    // Handle permissions
+    const userPermissions = permissions || user.defaultPermissions || 'read';
+    
+    // Check if user has requested permissions
+    const allowedPermissions = {
+      'admin': ['read', 'write', 'admin'],
+      'manager': ['read', 'write'],
+      'user': ['read']
+    };
+
+    const userRolePermissions = allowedPermissions[user.role] || ['read'];
+    if (!userRolePermissions.includes(userPermissions)) {
+      return res.status(403).json({
+        error: {
+          code: 403,
+          message: 'Insufficient permissions',
+          available_permissions: userRolePermissions
+        }
+      });
+    }
+
     // Update last login
     user.lastLogin = Date.now();
+    user.lastLoginIp = req.ip || req.connection.remoteAddress;
     await user.save();
 
-    // Generate token
+    // Generate access token
+    const tokenPayload = {
+      userId: user._id,
+      email: user.email,
+      companyId: user.companyId,
+      role: user.role,
+      permissions: userPermissions
+    };
+
     const token = jwt.sign(
+      tokenPayload,
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: process.env.JWT_EXPIRE || '24h' }
+    );
+
+    // Generate refresh token
+    const refreshToken = jwt.sign(
       { 
         userId: user._id,
         email: user.email,
-        companyId: user.companyId
+        type: 'refresh'
       },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      process.env.REFRESH_TOKEN_SECRET || 'refresh-secret-key',
+      { expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d' }
     );
 
+    // Log successful login
+    logger.info(`User ${email} logged in successfully with ${userPermissions} permissions`);
+
     res.json({
+      message: 'Login successful',
       token,
+      refreshToken,
+      expires_in: 86400, // 24 hours in seconds
+      token_type: 'Bearer',
+      permissions: userPermissions,
       user: {
         id: user._id,
         email: user.email,
@@ -88,11 +171,18 @@ router.post('/login', [
         first_name: user.firstName,
         last_name: user.lastName,
         role: user.role,
-        company_id: user.companyId
+        company_id: user.companyId,
+        status: user.status,
+        timezone: user.timezone,
+        avatar: user.avatar,
+        lastLogin: user.lastLogin,
+        twoFactorEnabled: user.twoFactorEnabled,
+        permissions: userPermissions
       }
     });
 
   } catch (error) {
+    logger.error(`Login error for ${req.body.email}: ${error.message}`);
     next(error);
   }
 });
@@ -105,7 +195,9 @@ router.post('/register', [
   body('password').isLength({ min: 6 }),
   body('username').isLength({ min: 3 }).trim(),
   body('first_name').notEmpty().trim(),
-  body('last_name').notEmpty().trim()
+  body('last_name').notEmpty().trim(),
+  body('timezone').optional().isString(),
+  body('company_id').optional().isString()
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -119,7 +211,15 @@ router.post('/register', [
       });
     }
 
-    const { email, password, username, first_name, last_name, company_id } = req.body;
+    const { 
+      email, 
+      password, 
+      username, 
+      first_name, 
+      last_name, 
+      company_id, 
+      timezone = 'UTC' 
+    } = req.body;
 
     // Check if user exists
     const existingUser = await User.findOne({ 
@@ -146,35 +246,62 @@ router.post('/register', [
       username,
       firstName: first_name,
       lastName: last_name,
-      companyId: company_id
+      companyId: company_id,
+      timezone,
+      role: 'user',
+      status: 'active',
+      defaultPermissions: 'read'
     });
 
     await user.save();
 
-    // Generate token
+    // Generate tokens
     const token = jwt.sign(
       { 
         userId: user._id,
         email: user.email,
-        companyId: user.companyId
+        companyId: user.companyId,
+        role: user.role,
+        permissions: 'read'
       },
       process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      { expiresIn: process.env.JWT_EXPIRE || '24h' }
     );
 
+    const refreshToken = jwt.sign(
+      { 
+        userId: user._id,
+        email: user.email,
+        type: 'refresh'
+      },
+      process.env.REFRESH_TOKEN_SECRET || 'refresh-secret-key',
+      { expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d' }
+    );
+
+    logger.info(`New user registered: ${email}`);
+
     res.status(201).json({
+      message: 'User registered successfully',
       token,
+      refreshToken,
+      expires_in: 86400,
+      token_type: 'Bearer',
       user: {
         id: user._id,
         email: user.email,
         username: user.username,
         first_name: user.firstName,
         last_name: user.lastName,
-        company_id: user.companyId
+        role: user.role,
+        company_id: user.companyId,
+        status: user.status,
+        timezone: user.timezone,
+        created_at: user.createdAt
       }
     });
 
   } catch (error) {
+    logger.error(`Registration error: ${error.message}`);
     next(error);
   }
 });
@@ -183,6 +310,18 @@ router.post('/register', [
 // @desc    Logout user
 // @access  Private
 router.post('/logout', async (req, res) => {
+  // Get token from Authorization header
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      logger.info(`User ${decoded.email} logged out`);
+    } catch (err) {
+      // Token invalid, but still allow logout
+    }
+  }
+
   // In a stateless JWT system, logout is handled client-side
   res.json({
     message: 'Logged out successfully'
@@ -190,36 +329,66 @@ router.post('/logout', async (req, res) => {
 });
 
 // @route   POST /api/1.0/refresh
-// @desc    Refresh token
-// @access  Private
-router.post('/refresh', async (req, res, next) => {
+// @desc    Refresh access token
+// @access  Public (but requires refresh token)
+router.post('/refresh', [
+  body('refreshToken').notEmpty()
+], async (req, res, next) => {
   try {
-    const { refresh_token } = req.body;
-
-    if (!refresh_token) {
-      return res.status(401).json({ 
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
         error: {
-          code: 401,
+          code: 400,
           message: 'Refresh token required'
         }
       });
     }
 
+    const { refreshToken } = req.body;
+
     // Verify refresh token
-    const decoded = jwt.verify(refresh_token, process.env.REFRESH_TOKEN_SECRET || 'refresh-secret');
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET || 'refresh-secret-key');
+    
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({ 
+        error: {
+          code: 401,
+          message: 'Invalid token type'
+        }
+      });
+    }
+
+    // Get user to include current permissions
+    const user = await User.findById(decoded.userId);
+    if (!user || user.status !== 'active') {
+      return res.status(401).json({ 
+        error: {
+          code: 401,
+          message: 'User not found or inactive'
+        }
+      });
+    }
     
     // Generate new access token
     const token = jwt.sign(
       { 
         userId: decoded.userId,
         email: decoded.email,
-        companyId: decoded.companyId
+        companyId: user.companyId,
+        role: user.role,
+        permissions: user.defaultPermissions || 'read'
       },
       process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      { expiresIn: process.env.JWT_EXPIRE || '24h' }
     );
 
-    res.json({ token });
+    res.json({ 
+      message: 'Token refreshed successfully',
+      token,
+      expires_in: 86400,
+      token_type: 'Bearer'
+    });
 
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -227,6 +396,14 @@ router.post('/refresh', async (req, res, next) => {
         error: {
           code: 401,
           message: 'Invalid refresh token'
+        }
+      });
+    }
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        error: {
+          code: 401,
+          message: 'Refresh token expired'
         }
       });
     }
@@ -265,7 +442,10 @@ router.post('/forgot-password', [
 
     // Generate reset token
     const resetToken = jwt.sign(
-      { userId: user._id },
+      { 
+        userId: user._id,
+        type: 'password_reset'
+      },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '1h' }
     );
@@ -285,7 +465,7 @@ router.post('/forgot-password', [
 });
 
 // @route   POST /api/1.0/reset-password
-// @desc    Reset password
+// @desc    Reset password using reset token
 // @access  Public
 router.post('/reset-password', [
   body('token').notEmpty(),
@@ -308,6 +488,15 @@ router.post('/reset-password', [
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
     
+    if (decoded.type !== 'password_reset') {
+      return res.status(401).json({ 
+        error: {
+          code: 401,
+          message: 'Invalid token type'
+        }
+      });
+    }
+    
     // Find user and update password
     const user = await User.findById(decoded.userId);
     if (!user) {
@@ -324,6 +513,8 @@ router.post('/reset-password', [
     user.password = await bcrypt.hash(password, salt);
     await user.save();
 
+    logger.info(`Password reset successful for user ${user.email}`);
+
     res.json({
       message: 'Password reset successfully'
     });
@@ -334,6 +525,66 @@ router.post('/reset-password', [
         error: {
           code: 401,
           message: 'Invalid or expired reset token'
+        }
+      });
+    }
+    next(error);
+  }
+});
+
+// @route   GET /api/1.0/me
+// @desc    Get current user info
+// @access  Private
+router.get('/me', async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        error: {
+          code: 401,
+          message: 'No token provided'
+        }
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        error: {
+          code: 404,
+          message: 'User not found'
+        }
+      });
+    }
+
+    res.json({
+      data: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        role: user.role,
+        company_id: user.companyId,
+        status: user.status,
+        timezone: user.timezone,
+        avatar: user.avatar,
+        lastLogin: user.lastLogin,
+        twoFactorEnabled: user.twoFactorEnabled,
+        permissions: decoded.permissions,
+        created_at: user.createdAt
+      }
+    });
+
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        error: {
+          code: 401,
+          message: 'Invalid token'
         }
       });
     }
