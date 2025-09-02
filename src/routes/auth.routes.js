@@ -154,19 +154,66 @@ router.post('/login', [
       { expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d' }
     );
 
-    // ✨ LOG TOKEN FOR EASY TESTING ✨
-    console.log('\n' + '='.repeat(80));
-    console.log('🔑 LOGIN SUCCESSFUL - COPY TOKEN FOR API TESTING');
-    console.log('='.repeat(80));
-    console.log('📧 Email:', email);
-    console.log('👤 Role:', user.role);
-    console.log('🔐 Permissions:', userPermissions);
-    console.log('🎫 TOKEN (copy this for Authorization header):');
-    console.log('Bearer ' + token);
-    console.log('\n💡 Example usage:');
-    console.log('curl -H "Authorization: Bearer ' + token + '" \\');
-    console.log('     "http://localhost:3000/api/1.0/users"');
-    console.log('='.repeat(80) + '\n');
+    // ✨ AUTOMATICALLY FETCH AND LOG USERS DATA ✨
+    try {
+      // Fetch users using the same logic as the users endpoint
+      const allUsers = await User.find({ deleted: { $ne: true } }, null, {
+        sort: { _id: 1 },
+        limit: 10
+      });
+
+      const formattedUsers = allUsers.map(u => ({
+        id: u._id,
+        email: u.email,
+        username: u.username,
+        first_name: u.firstName,
+        last_name: u.lastName,
+        full_name: u.fullName,
+        role: u.role,
+        status: u.status,
+        company_id: u.companyId,
+        created_at: u.createdAt,
+        last_login: u.lastLogin
+      }));
+
+      // ✨ LOG TOKEN AND USERS DATA ✨
+      console.log('\n' + '='.repeat(100));
+      console.log('🎉 LOGIN SUCCESSFUL - TOKEN & USERS DATA');
+      console.log('='.repeat(100));
+      console.log('📧 Logged in as:', email);
+      console.log('👤 Role:', user.role);
+      console.log('🔐 Permissions:', userPermissions);
+      console.log('🎫 TOKEN (copy this for Authorization header):');
+      console.log('Bearer ' + token);
+      console.log('');
+      console.log('👥 AVAILABLE USERS IN SYSTEM:');
+      console.log('='.repeat(100));
+      
+      formattedUsers.forEach((u, index) => {
+        console.log(`${index + 1}. ${u.full_name || u.username} (${u.email})`);
+        console.log(`   ID: ${u.id} | Role: ${u.role} | Status: ${u.status}`);
+        console.log(`   Last Login: ${u.last_login ? new Date(u.last_login).toISOString() : 'Never'}`);
+        console.log('');
+      });
+      
+      console.log('💡 TEST USERS ENDPOINT WITH:');
+      console.log(`curl -H "Authorization: Bearer ${token}" \\`);
+      console.log('     "http://localhost:3000/api/1.0/users"');
+      console.log('');
+      console.log('🔍 TEST SPECIFIC USER BY ID:');
+      if (formattedUsers.length > 0) {
+        console.log(`curl -H "Authorization: Bearer ${token}" \\`);
+        console.log(`     "http://localhost:3000/api/1.0/users/${formattedUsers[0].id}"`);
+      }
+      console.log('');
+      console.log('🎯 TEST WITH FILTERS:');
+      console.log(`curl -H "Authorization: Bearer ${token}" \\`);
+      console.log('     "http://localhost:3000/api/1.0/users?filter[role]=admin&detail=full"');
+      console.log('='.repeat(100) + '\n');
+
+    } catch (usersFetchError) {
+      console.log('⚠️ Could not fetch users data:', usersFetchError.message);
+    }
 
     // Log successful login
     logger.info(`User ${email} logged in successfully with ${userPermissions} permissions`);
